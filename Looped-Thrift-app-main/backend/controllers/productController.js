@@ -2,6 +2,7 @@ const Product = require('../models/Product');
 const User = require('../models/User');
 const Order = require('../models/Order');
 const Rental = require('../models/Rental');
+const { getEmbedding } = require('../utils/embeddings');
 
 // GET /products — supports tag filtering & recommendations
 exports.getProducts = async (req, res) => {
@@ -64,15 +65,62 @@ exports.getProduct = async (req, res) => {
   }
 };
 
+// POST /products/search-visual — visual image search
+exports.searchVisual = async (req, res) => {
+  try {
+    const { imageUrl } = req.body;
+    if (!imageUrl) {
+      return res.status(400).json({ message: 'imageUrl is required' });
+    }
+
+    const { searchByImage } = require('../services/visualSearch');
+    const result = await searchByImage(imageUrl);
+
+    if (!result.success) {
+      return res.status(400).json({ message: result.error || result.message || 'Visual search failed' });
+    }
+
+    res.json({
+      success: true,
+      description: result.description,
+      products: result.products || []
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 // POST /products — seller uploads item
 exports.createProduct = async (req, res) => {
   try {
     const { title, price, condition, category, tags, image, description, brand, size, sellerId, sellerName } = req.body;
+    const parsedTags = typeof tags === 'string' ? tags.split(',').map(t => t.trim().toLowerCase()) : tags;
+
+    // Generate embedding for newly created product (non-blocking fallback on failure)
+    let embedding;
+    try {
+      const textParts = [
+        title,
+        description,
+        category,
+        Array.isArray(parsedTags) ? parsedTags.join(' ') : parsedTags,
+        condition,
+        brand,
+      ].filter(Boolean);
+      const textToEmbed = textParts.join(' ').trim();
+      if (textToEmbed) {
+        embedding = await getEmbedding(textToEmbed);
+      }
+    } catch (embErr) {
+      console.warn('⚠️ Warning: Failed to generate embedding for new product (saving product without embedding):', embErr.message);
+    }
+
     const product = await Product.create({
       title, price: Number(price), condition, category,
-      tags: typeof tags === 'string' ? tags.split(',').map(t => t.trim().toLowerCase()) : tags,
+      tags: parsedTags,
       image: image || `https://picsum.photos/seed/${Date.now()}/400/500`,
       description, brand, size, sellerId, sellerName,
+      embedding
     });
 
     // Track on user profile
@@ -186,6 +234,52 @@ exports.seedProducts = async (req, res) => {
     res.json({ message: `Seeded ${insertedProducts.length} products, 2 orders, and 1 rental.` });
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+};
+
+// POST /products/search-natural — natural language semantic vector search
+exports.searchNatural = async (req, res) => {
+  try {
+    const { query, limit = 12 } = req.body;
+
+    if (!query || typeof query !== 'string' || !query.trim()) {
+      return res.status(400).json({ message: 'Search query string is required' });
+    }
+
+    let queryVector;
+    try {
+      queryVector = await getEmbedding(query);
+    } catch (embErr) {
+      return res.status(503).json({
+        message: 'AI embedding service temporarily unavailable',
+        error: embErr.message,
+      });
+    }
+
+    const limitNum = Math.min(Math.max(parseInt(limit, 10) || 12, 1), 50);
+
+    const pipeline = [
+      {
+        $vectorSearch: {
+          index: 'product_vector_index',
+          path: 'embedding',
+          queryVector: queryVector,
+          numCandidates: limitNum * 10,
+          limit: limitNum,
+        },
+      },
+      {
+        $addFields: {
+          score: { $meta: 'vectorSearchScore' },
+        },
+      },
+    ];
+
+    const products = await Product.aggregate(pipeline);
+    res.json(products);
+  } catch (err) {
+    console.error('Error in searchNatural endpoint:', err.message);
+    res.status(500).json({ message: 'Natural language search failed', error: err.message });
   }
 };
 

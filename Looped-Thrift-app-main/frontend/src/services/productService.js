@@ -11,3 +11,9 @@ export const createProduct = (data) =>
 
 export const seedProducts = () =>
   api.post('/products/admin/seed').then(r => r.data)
+
+export const getNaturalSearchResults = (query, limit = 12) =>
+  api.post('/products/search-natural', { query, limit }).then(r => r.data)
+
+export const getVisualSearchResults = (imageUrl) =>
+  api.post('/products/search-visual', { imageUrl }).then(r => r.data)

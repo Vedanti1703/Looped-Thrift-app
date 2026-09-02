@@ -5,9 +5,10 @@ dns.setServers(['8.8.8.8', '8.8.4.4'])
 const express = require('express')
 const cors = require('cors')
 const mongoose = require('mongoose')
+const path = require('path')
 const dotenv = require('dotenv')
 
-dotenv.config()
+dotenv.config({ path: path.resolve(__dirname, '.env'), override: true })
 
 const app = express()
 app.use(cors())

@@ -1,73 +1,17 @@
-// import { useState } from 'react'
-// import { useNavigate } from 'react-router-dom'
-// import { useAuth } from '../context/AuthContext'
-
-// export default function Header({ onSearch }) {
-//   const navigate = useNavigate()
-//   const { user } = useAuth()
-//   const [q, setQ] = useState('')
-
-//   const handleSearch = (e) => {
-//     e.preventDefault()
-//     if (onSearch) onSearch(q)
-//     else navigate(`/discover?search=${encodeURIComponent(q)}`)
-//   }
-
-//   return (
-//     <header className="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-pink-100 px-4 py-3">
-//       <div className="flex items-center gap-3 max-w-lg mx-auto">
-//         {/* Logo */}
-//         <span
-//           className="font-display text-2xl text-pink-500 cursor-pointer flex-shrink-0 italic"
-//           onClick={() => navigate('/')}
-//         >
-//           Looped
-//         </span>
-
-//         {/* Search */}
-//         <form onSubmit={handleSearch} className="flex-1">
-//           <div className="relative">
-//             <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-//               <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-//             </svg>
-//             <input
-//               value={q}
-//               onChange={e => setQ(e.target.value)}
-//               className="w-full bg-pink-50 border border-pink-200 rounded-full pl-9 pr-4 py-2 text-sm
-//                          focus:outline-none focus:ring-2 focus:ring-pink-300 placeholder-gray-400"
-//               placeholder="Search styles, tags…"
-//             />
-//           </div>
-//         </form>
-
-//         {/* Profile icon */}
-//         <button
-//           onClick={() => navigate('/profile')}
-//           className="w-9 h-9 rounded-full bg-pink-100 flex items-center justify-center flex-shrink-0
-//                      hover:bg-pink-200 transition-colors"
-//         >
-//           {user?.avatar
-//             ? <img src={user.avatar} className="w-full h-full rounded-full object-cover" alt="" />
-//             : <span className="text-pink-600 font-bold text-sm">
-//                 {user?.name?.[0]?.toUpperCase() || '?'}
-//               </span>
-//           }
-//         </button>
-//       </div>
-//     </header>
-//   )
-// }
-
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
+import { uploadImage } from '../services/uploadService'
+import api from '../services/api'
 
 export default function Header({ onSearch }) {
   const navigate = useNavigate()
   const { user } = useAuth()
   const { cartItems } = useCart()
   const [q, setQ] = useState('')
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef(null)
 
   const handleSearch = (e) => {
     e.preventDefault()
@@ -75,8 +19,32 @@ export default function Header({ onSearch }) {
     else navigate(`/discover?search=${encodeURIComponent(q)}`)
   }
 
+  const handleCameraPhotoUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    try {
+      setUploading(true)
+      const imageUrl = await uploadImage(file)
+      // Navigate directly to discover page with imageUrl parameter to display visual search results on grid
+      navigate(`/discover?imageUrl=${encodeURIComponent(imageUrl)}`)
+    } catch (err) {
+      console.error('Failed photo search from header:', err)
+    } finally {
+      setUploading(false)
+    }
+  }
+
   return (
-    <header className="sticky top-0 z-40 bg-white border-b border-pink-100 px-3 py-2.5">
+    <header className="sticky top-0 z-40 bg-white border-b border-pink-100 px-3 py-2.5 shadow-2xs font-sans">
+      {/* Hidden File Input for Visual Search */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        accept="image/*"
+        onChange={handleCameraPhotoUpload}
+        className="hidden"
+      />
+
       <div className="flex items-center gap-2 max-w-lg mx-auto">
 
         {/* ── Logo: L + SVG infinity as "oo" + ped ── */}
@@ -107,9 +75,9 @@ export default function Header({ onSearch }) {
           </span>
         </button>
 
-        {/* ── Search bar ── */}
+        {/* ── Search bar with Camera Upload Icon on Home Page ── */}
         <form onSubmit={handleSearch} className="flex-1 min-w-0">
-          <div className="relative">
+          <div className="relative flex items-center">
             <svg
               className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
               width="14" height="14" viewBox="0 0 24 24"
@@ -118,14 +86,30 @@ export default function Header({ onSearch }) {
               <circle cx="11" cy="11" r="8"/>
               <path d="m21 21-4.35-4.35"/>
             </svg>
+
             <input
               value={q}
               onChange={e => setQ(e.target.value)}
               className="w-full bg-pink-50 border border-pink-200 rounded-full
-                         pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2
+                         pl-8 pr-9 py-2 text-sm focus:outline-none focus:ring-2
                          focus:ring-pink-300 placeholder-gray-400 transition"
-              placeholder="Search styles…"
+              placeholder="Search styles or tap 📷..."
             />
+
+            {/* 📷 Home Page Camera Upload Button */}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-pink-500 hover:text-pink-600 transition active:scale-95 disabled:opacity-50"
+              title="Search by Photo (Visual Search)"
+            >
+              {uploading ? (
+                <div className="w-3.5 h-3.5 border-2 border-pink-500 border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <span className="text-base select-none">📷</span>
+              )}
+            </button>
           </div>
         </form>
 
