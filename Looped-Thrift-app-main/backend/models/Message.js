@@ -13,6 +13,7 @@ const conversationSchema = new mongoose.Schema({
   lastMessageAt:{ type: Date, default: Date.now },
   unreadBuyer:  { type: Number, default: 0 },
   unreadSeller: { type: Number, default: 0 },
+  humanSupportRequired: { type: Boolean, default: false },
   loopedAiState:{
     step: { type: String, default: 'idle' },
     orderData: {
@@ -29,11 +30,13 @@ const conversationSchema = new mongoose.Schema({
 
 // A Message belongs to a conversation
 const messageSchema = new mongoose.Schema({
-  conversationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Conversation', required: true },
-  senderId:       { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  senderName:     { type: String },
-  text:           { type: String, required: true },
-  read:           { type: Boolean, default: false },
+  conversationId:    { type: mongoose.Schema.Types.ObjectId, ref: 'Conversation', required: true },
+  senderId:          { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  senderName:        { type: String },
+  text:              { type: String, default: '' },
+  imageUrl:          { type: String },
+  read:              { type: Boolean, default: false },
+  suggestedProducts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Product' }],
 }, { timestamps: true });
 
 const Conversation = mongoose.model('Conversation', conversationSchema);

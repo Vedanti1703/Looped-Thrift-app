@@ -29,6 +29,7 @@ const productSchema = new mongoose.Schema({
   rentAvailable: { type: Boolean, default: true },
   conditionImages: [{ type: String }],
   conditionNotes: { type: String, default: '' },
+  embedding: { type: [Number], default: undefined },
 }, { timestamps: true });
 
 module.exports = mongoose.model('Product', productSchema);

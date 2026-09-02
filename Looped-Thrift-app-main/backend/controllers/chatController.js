@@ -105,7 +105,7 @@ exports.getMessages = async (req, res) => {
 
     if (!isParticipant) return res.status(403).json({ message: 'Not authorised' });
 
-    const messages = await Message.find({ conversationId }).sort({ createdAt: 1 });
+    const messages = await Message.find({ conversationId }).sort({ createdAt: 1 }).populate('suggestedProducts');
 
     // Mark messages as read for this user
     await Message.updateMany(
@@ -129,8 +129,7 @@ exports.getMessages = async (req, res) => {
 // Send a message
 exports.sendMessage = async (req, res) => {
   try {
-    const { conversationId, text } = req.body;
-    if (!text?.trim()) return res.status(400).json({ message: 'Message cannot be empty' });
+    const { conversationId, text, imageUrl } = req.body;
 
     const convo = await Conversation.findById(conversationId);
     if (!convo) return res.status(404).json({ message: 'Conversation not found' });
@@ -145,12 +144,15 @@ exports.sendMessage = async (req, res) => {
     const sender = await User.findById(req.userId).select('name email');
     const senderName = sender?.name || sender?.email?.split('@')[0] || 'User';
 
+    const msgText = (text || '').trim() || (imageUrl ? '📷 Sent a photo' : '');
+
     // Save the message
     const message = await Message.create({
       conversationId,
       senderId: req.userId,
       senderName,
-      text: text.trim(),
+      text: msgText,
+      imageUrl: imageUrl || undefined,
     });
 
     // Update conversation last message
@@ -161,15 +163,20 @@ exports.sendMessage = async (req, res) => {
     const isConvoWithAssistant = assistantUser && convo.sellerId.toString() === assistantUser._id.toString();
 
     if (isConvoWithAssistant) {
-      // AI assistant replies immediately
-      const replyText = await loopedAi.generateResponse(text.trim(), convo, req.userId);
-      
+      // AI assistant replies immediately (Visual Search if imageUrl provided, else text LLM agent)
+      const { text: replyText, suggestedProducts } = imageUrl
+        ? await loopedAi.generateImageSearchResponse(imageUrl, convo, req.userId)
+        : await loopedAi.generateResponse(msgText, convo, req.userId);
+
+      const suggestedProductIds = (suggestedProducts || []).map(p => p._id || p);
+
       // Save assistant message
       await Message.create({
         conversationId,
         senderId: assistantUser._id,
         senderName: 'Looped AI',
         text: replyText,
+        suggestedProducts: suggestedProductIds,
       });
 
       // Update conversation with AI's reply and reset unreadSeller (since bot read it)
@@ -182,7 +189,7 @@ exports.sendMessage = async (req, res) => {
     } else {
       // Normal seller conversation update
       await Conversation.findByIdAndUpdate(conversationId, {
-        lastMessage:   text.trim(),
+        lastMessage:   msgText,
         lastMessageAt: new Date(),
         $inc: { [isBuyer ? 'unreadSeller' : 'unreadBuyer']: 1 }
       });
