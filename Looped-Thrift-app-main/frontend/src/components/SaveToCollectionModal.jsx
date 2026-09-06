@@ -73,7 +73,8 @@ export default function SaveToCollectionModal({ productId, isOpen, onClose }) {
     try {
       // Create collection with optional initial productId or create then add
       const newCol = await createCollection(newColName.trim(), productId)
-      if (newCol && !newCol.productIds?.includes(productId)) {
+      const hasProduct = (newCol?.productIds || []).some(p => (p._id || p).toString() === productId?.toString())
+      if (newCol && !hasProduct && productId) {
         await addItemToCollection(newCol._id || newCol.id, productId)
       }
       setSuccessMsg(`Created & saved to "${newColName.trim()}"! ✨`)

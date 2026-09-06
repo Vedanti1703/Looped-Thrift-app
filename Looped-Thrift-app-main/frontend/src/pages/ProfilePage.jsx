@@ -293,6 +293,22 @@ export default function ProfilePage() {
           </svg>
           List an Item
         </button>
+
+        {/* Quick Links */}
+        <div className="flex gap-2 mt-3">
+          <button
+            onClick={() => navigate('/my-orders')}
+            className="flex-1 py-2 text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-xl hover:bg-indigo-100 transition-colors"
+          >
+            📦 My Orders
+          </button>
+          <button
+            onClick={() => navigate('/seller-dashboard')}
+            className="flex-1 py-2 text-xs font-bold text-amber-600 bg-amber-50 border border-amber-100 rounded-xl hover:bg-amber-100 transition-colors"
+          >
+            🛍️ Seller Orders
+          </button>
+        </div>
       </div>
 
       {/* Tabs Bar */}

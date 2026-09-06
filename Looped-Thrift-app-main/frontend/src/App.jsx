@@ -16,10 +16,15 @@ import CartPage        from './pages/CartPage'
 import UploadPage      from './pages/UploadPage'
 import ProfilePage     from './pages/ProfilePage'
 import ChatPage        from './pages/ChatPage'
+import OrderConfirmationPage from './pages/OrderConfirmationPage'
+import MyOrdersPage from './pages/MyOrdersPage'
+import SellerDashboardPage from './pages/SellerDashboardPage'
+import AdminDisputePage from './pages/AdminDisputePage'
+import StyleMePage from './pages/StyleMePage'
 import { RentPage, AuctionPage } from './pages/ComingSoonPages'
 
 // Pages that show the bottom nav
-const NAV_ROUTES = ['/', '/discover', '/swipe', '/cart', '/chat', '/profile', '/upload', '/rent', '/auction']
+const NAV_ROUTES = ['/', '/discover', '/swipe', '/cart', '/chat', '/profile', '/upload', '/rent', '/auction', '/style-me']
 
 function AppContent() {
   return (
@@ -35,6 +40,11 @@ function AppContent() {
       <Route path="/swipe"      element={<WithNav><SwipePage /></WithNav>} />
       <Route path="/product/:id" element={<ProductDetailPage />} />
       <Route path="/cart"       element={<WithNav><CartPage /></WithNav>} />
+      <Route path="/order-confirmation/:orderId" element={<WithNav><OrderConfirmationPage /></WithNav>} />
+      <Route path="/my-orders" element={<WithNav><MyOrdersPage /></WithNav>} />
+      <Route path="/seller-dashboard" element={<WithNav><SellerDashboardPage /></WithNav>} />
+      <Route path="/admin/disputes" element={<AdminDisputePage />} />
+      <Route path="/style-me" element={<WithNav><StyleMePage /></WithNav>} />
       <Route path="/upload"     element={<WithNav><UploadPage /></WithNav>} />
       <Route path="/profile"    element={<WithNav><ProfilePage /></WithNav>} />
       <Route path="/chat"       element={<WithNav><ChatPage /></WithNav>} />

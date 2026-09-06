@@ -6,6 +6,8 @@ const userSchema = new mongoose.Schema({
   name: { type: String, default: '' },
   phone: { type: String, unique: true, sparse: true },
   avatar: { type: String, default: '' },
+  role: { type: String, enum: ['user', 'admin'], default: 'user' },
+  razorpayAccountId: { type: String, default: '' }, // Razorpay Route linked account ID for seller transfers
   otp: { type: String },
   otpExpiry: { type: Date },
   isVerified: { type: Boolean, default: false },
