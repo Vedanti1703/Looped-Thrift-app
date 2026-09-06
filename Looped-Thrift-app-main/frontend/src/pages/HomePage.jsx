@@ -65,6 +65,33 @@ export default function HomePage() {
         <div className="absolute right-0 bottom-0 opacity-20 text-9xl">👗</div>
       </div>
 
+      {/* ✨ AI Style Me banner */}
+      <div className="mx-4 mt-3">
+        <button
+          id="home-style-me-banner"
+          onClick={() => navigate('/style-me')}
+          className="w-full rounded-2xl overflow-hidden bg-gradient-to-r from-violet-500 via-purple-500 to-pink-500 p-px"
+        >
+          <div className="w-full bg-gradient-to-r from-violet-50 via-fuchsia-50 to-pink-50 rounded-2xl px-4 py-3.5 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center text-lg flex-shrink-0 shadow-sm">
+                ✨
+              </div>
+              <div className="text-left">
+                <p className="text-sm font-extrabold text-gray-900 leading-tight">AI Style Me</p>
+                <p className="text-xs text-gray-500 mt-0.5 leading-snug">Describe your vibe, get 2–3 real outfits</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1 bg-gradient-to-r from-violet-500 to-pink-500 text-white text-xs font-bold px-3 py-1.5 rounded-full flex-shrink-0">
+              Try it
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                <path d="M9 18l6-6-6-6"/>
+              </svg>
+            </div>
+          </div>
+        </button>
+      </div>
+
       {/* Sections */}
       <div className="mt-6 space-y-6 px-4">
         {loading ? (

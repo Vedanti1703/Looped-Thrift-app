@@ -27,6 +27,11 @@ app.use('/chat', require('./routes/chat'))
 app.use('/upload', require('./routes/upload'))   // Cloudinary image uploads
 app.use('/reviews', require('./routes/reviews'))
 app.use('/rental', require('./routes/rental'))
+app.use('/payment', require('./routes/payment'))
+app.use('/collections', require('./routes/collections'))
+app.use('/protection', require('./routes/orderProtection'))
+app.use('/escrow', require('./routes/escrow'))
+app.use('/style-me', require('./routes/styleMe'))
 app.use("/", require("./routes/webhook"));
 
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/looped'
