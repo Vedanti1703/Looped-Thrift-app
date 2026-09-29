@@ -11,12 +11,42 @@ const dotenv = require('dotenv')
 dotenv.config({ path: path.resolve(__dirname, '.env'), override: true })
 
 const app = express()
-app.use(cors())
+
+// Dynamic CORS configuration allowing process.env.FRONTEND_URL and localhost during development
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:3000'
+].filter(Boolean)
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (e.g. mobile apps, curl, server-to-server)
+    if (!origin) return callback(null, true)
+    if (process.env.NODE_ENV !== 'production' || allowedOrigins.includes(origin) || allowedOrigins.some(o => origin.startsWith(o))) {
+      return callback(null, true)
+    }
+    return callback(new Error('Blocked by CORS policy'))
+  },
+  credentials: true
+}))
+
 app.use(express.json({
   verify: (req, res, buf) => {
     req.rawBody = buf;
   }
 }));
+
+// Health check route
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString()
+  })
+})
 
 app.use('/auth', require('./routes/auth'))
 app.use('/products', require('./routes/products'))
@@ -57,15 +87,15 @@ mongoose.connect(MONGO_URI)
       try {
         const now = new Date()
 
-        // Activate upcoming auctions whose start time has arrived
+        // Activate upcoming auctions whose start time has arrived (only if verified)
         await Auction.updateMany(
-          { status: 'upcoming', startTime: { $lte: now } },
+          { status: 'upcoming', verificationStatus: 'verified', startTime: { $lte: now } },
           { $set: { status: 'live' } }
         )
 
         // Mark auctions ending soon (within next 5 minutes)
         await Auction.updateMany(
-          { status: 'live', endTime: { $lte: new Date(now.getTime() + 5 * 60 * 1000) } },
+          { status: 'live', verificationStatus: 'verified', endTime: { $lte: new Date(now.getTime() + 5 * 60 * 1000) } },
           { $set: { status: 'ending' } }
         )
 

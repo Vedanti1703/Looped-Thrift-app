@@ -1,6 +1,31 @@
 const Auction = require('../models/Auction');
 const Product = require('../models/Product');
 const User = require('../models/User');
+const jwt = require('jsonwebtoken');
+
+const JWT_SECRET = process.env.JWT_SECRET || 'looped_secret_2024';
+
+// Helper: check if a user is an admin
+function isUserAdmin(user) {
+  if (!user) return false;
+  const adminEmails = (process.env.ADMIN_EMAILS || 'admin@looped.app').split(',').map(e => e.trim().toLowerCase());
+  if (user.role === 'admin') return true;
+  if (user.email && (adminEmails.includes(user.email.toLowerCase()) || user.email.includes('admin@looped.app'))) return true;
+  return false;
+}
+
+// Helper: optionally extract requester from Authorization header
+async function getOptionalUser(req) {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return null;
+    const decoded = jwt.verify(token, JWT_SECRET);
+    if (!decoded || !decoded.userId) return null;
+    return await User.findById(decoded.userId);
+  } catch {
+    return null;
+  }
+}
 
 // In-memory bid queue — one queue per auction prevents race conditions (Distributed Computing)
 const bidQueues = new Map();
@@ -102,7 +127,7 @@ async function placeBid(req, res) {
             }
           ],
           { new: true }
-        );
+        ).select('-proofDocs');
 
         if (!updated) {
           // Version mismatch means another concurrent bid landed first
@@ -121,14 +146,22 @@ async function placeBid(req, res) {
   res.json(result.auction);
 }
 
-// Seller creates auction
+// Seller creates luxury designer auction
 async function createAuction(req, res) {
   try {
     const {
       productId,
       title,
       description,
+      brand,
+      category,
+      condition,
+      size,
+      purchaseYear,
+      declaredValue,
+      images,
       image,
+      proofDocs,
       startingPrice,
       reservePrice,
       incrementAmount,
@@ -136,6 +169,45 @@ async function createAuction(req, res) {
       endTime
     } = req.body;
     const sellerId = req.userId;
+
+    // Server-side luxury drop validation
+    if (!title || !title.trim()) {
+      return res.status(400).json({ message: 'Auction title is required' });
+    }
+    if (!brand || !brand.trim()) {
+      return res.status(400).json({ message: 'Brand name is required for luxury auctions' });
+    }
+    const val = Number(declaredValue);
+    if (isNaN(val) || val < 5000) {
+      return res.status(400).json({
+        message: 'Declared purchase/retail value must be at least ₹5,000. Auctions on Looped are reserved for authenticated luxury & designer items.'
+      });
+    }
+
+    const allImages = Array.isArray(images) && images.length > 0 ? images : (image ? [image] : []);
+    if (allImages.length < 3) {
+      return res.status(400).json({ message: 'At least 3 high-resolution photos (Front, Back, Brand tag/details) are required.' });
+    }
+
+    // Authenticity proof validation: bill is required, plus certificate/tag/box
+    const proofs = Array.isArray(proofDocs) ? proofDocs : [];
+    const hasBill = proofs.some(p => p.type === 'bill');
+    const hasAuthProof = proofs.some(p => ['certificate', 'serial_tag', 'dustbag_box'].includes(p.type));
+    if (!hasBill) {
+      return res.status(400).json({ message: 'Purchase invoice/bill is required for luxury verification.' });
+    }
+    if (!hasAuthProof) {
+      return res.status(400).json({ message: 'At least one authenticity proof (Certificate, Serial number tag, or Dustbag/Box) is required.' });
+    }
+
+    const startVal = Number(startingPrice);
+    if (!startVal || startVal <= 0) {
+      return res.status(400).json({ message: 'Valid starting price is required' });
+    }
+    const resVal = Number(reservePrice) || 0;
+    if (resVal > 0 && resVal < startVal) {
+      return res.status(400).json({ message: 'Reserve price must be greater than or equal to starting price' });
+    }
 
     const seller = await User.findById(sellerId);
     const sellerName = seller?.name || seller?.email?.split('@')[0] || 'Seller';
@@ -148,25 +220,44 @@ async function createAuction(req, res) {
       return res.status(400).json({ message: 'Auction end time must be after start time' });
     }
 
-    let status = 'upcoming';
-    if (start <= now && end > now) {
-      status = 'live';
+    // Optional: Vision / Fraud check hint
+    let aiFraudHint = null;
+    try {
+      if (allImages[0]) {
+        const { checkDescriptionImageConsistency } = require('./fakeListingController');
+        if (typeof checkDescriptionImageConsistency === 'function') {
+          aiFraudHint = await checkDescriptionImageConsistency(allImages[0], title, description, category, condition);
+        }
+      }
+    } catch (visionErr) {
+      console.warn('Vision hint check skipped:', visionErr.message);
     }
 
     const auction = new Auction({
       productId: productId || undefined,
       sellerId,
       sellerName,
-      title,
-      description: description || '',
-      image,
-      startingPrice: Number(startingPrice) || 100,
-      currentPrice: Number(startingPrice) || 100,
-      reservePrice: Number(reservePrice) || 0,
-      incrementAmount: Number(incrementAmount) || 50,
+      title: title.trim(),
+      description: description ? description.trim() : '',
+      brand: brand.trim(),
+      category: category || 'Designer Wear',
+      condition: condition || 'Like New',
+      size: size || '',
+      purchaseYear: purchaseYear || '',
+      declaredValue: val,
+      image: allImages[0],
+      images: allImages,
+      proofDocs: proofs,
+      verificationStatus: 'pending',
+      verificationNote: '',
+      aiFraudHint,
+      startingPrice: startVal,
+      currentPrice: startVal,
+      reservePrice: resVal,
+      incrementAmount: Number(incrementAmount) || 250,
       startTime: start,
       endTime: end,
-      status,
+      status: 'upcoming', // Starts upcoming and pending verification
       bids: [],
       totalBidders: 0
     });
@@ -179,11 +270,12 @@ async function createAuction(req, res) {
   }
 }
 
-// Get all auctions with optional status filter
+// Get all verified auctions with optional status filter (proofDocs excluded)
 async function getAuctions(req, res) {
   try {
     const { status } = req.query;
-    const query = {};
+    // Public drops feed only shows verified auctions
+    const query = { verificationStatus: 'verified' };
     if (status && status !== 'all') {
       if (status === 'live_or_ending') {
         query.status = { $in: ['live', 'ending'] };
@@ -192,7 +284,9 @@ async function getAuctions(req, res) {
       }
     }
 
-    const auctions = await Auction.find(query).sort({ endTime: 1 });
+    const auctions = await Auction.find(query)
+      .select('-proofDocs')
+      .sort({ endTime: 1 });
     res.json(auctions);
   } catch (err) {
     console.error('getAuctions error:', err);
@@ -200,7 +294,7 @@ async function getAuctions(req, res) {
   }
 }
 
-// Get single auction with incremented viewCount
+// Get single auction with incremented viewCount (proofDocs hidden unless seller or admin)
 async function getAuction(req, res) {
   try {
     const { id } = req.params;
@@ -214,7 +308,16 @@ async function getAuction(req, res) {
       return res.status(404).json({ message: 'Auction not found' });
     }
 
-    res.json(auction);
+    const requester = await getOptionalUser(req);
+    const isOwner = requester && auction.sellerId.toString() === requester._id.toString();
+    const isAdmin = isUserAdmin(requester);
+
+    const doc = auction.toObject();
+    if (!isOwner && !isAdmin) {
+      delete doc.proofDocs;
+    }
+
+    res.json(doc);
   } catch (err) {
     console.error('getAuction error:', err);
     res.status(500).json({ message: err.message || 'Server error fetching auction' });
@@ -269,11 +372,73 @@ async function getMyAuctions(req, res) {
   }
 }
 
+// ── Admin Verification Endpoints ────────────────────────────
+
+// GET /auction/admin/pending — get all auctions pending verification or review
+async function getAdminAuctions(req, res) {
+  try {
+    const { status } = req.query;
+    const query = {};
+    if (status && status !== 'all') {
+      query.verificationStatus = status;
+    }
+    const auctions = await Auction.find(query).sort({ createdAt: -1 });
+    res.json(auctions);
+  } catch (err) {
+    console.error('getAdminAuctions error:', err);
+    res.status(500).json({ message: err.message || 'Server error fetching admin auctions' });
+  }
+}
+
+// POST /auction/admin/:id/verify — approve or reject auction with note
+async function verifyAuction(req, res) {
+  try {
+    const { id } = req.params;
+    const { action, note } = req.body; // action: 'approve' | 'reject'
+
+    if (!['approve', 'reject'].includes(action)) {
+      return res.status(400).json({ message: 'Action must be approve or reject' });
+    }
+
+    const auction = await Auction.findById(id);
+    if (!auction) {
+      return res.status(404).json({ message: 'Auction not found' });
+    }
+
+    const now = new Date();
+    if (action === 'approve') {
+      auction.verificationStatus = 'verified';
+      auction.verificationNote = note || 'Verified authentic luxury designer drop';
+      auction.verifiedAt = now;
+      auction.verifiedBy = req.userId;
+
+      // If scheduled start time is in the past, immediately activate it
+      if (new Date(auction.startTime) <= now && new Date(auction.endTime) > now) {
+        auction.status = 'live';
+      } else if (new Date(auction.startTime) > now) {
+        auction.status = 'upcoming';
+      }
+    } else {
+      auction.verificationStatus = 'rejected';
+      auction.verificationNote = note || 'Does not meet authenticity or document requirements';
+      auction.status = 'cancelled';
+    }
+
+    await auction.save();
+    res.json({ message: `Auction successfully ${auction.verificationStatus}`, auction });
+  } catch (err) {
+    console.error('verifyAuction error:', err);
+    res.status(500).json({ message: err.message || 'Server error verifying auction' });
+  }
+}
+
 module.exports = {
   placeBid,
   createAuction,
   getAuctions,
   getAuction,
   settleAuction,
-  getMyAuctions
+  getMyAuctions,
+  getAdminAuctions,
+  verifyAuction
 };

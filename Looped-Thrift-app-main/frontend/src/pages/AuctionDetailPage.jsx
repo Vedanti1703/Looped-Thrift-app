@@ -17,6 +17,7 @@ export default function AuctionDetailPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [now, setNow] = useState(Date.now());
+  const [selectedImageIdx, setSelectedImageIdx] = useState(0);
 
   // Real-time second counter
   useEffect(() => {
@@ -36,7 +37,7 @@ export default function AuctionDetailPage() {
       const data = await getAuction(id);
       setAuction(data);
       if (!bidAmount && data) {
-        setBidAmount(data.currentPrice + (data.incrementAmount || 50));
+        setBidAmount(data.currentPrice + (data.incrementAmount || 250));
       }
     } catch (err) {
       console.error('Failed to load auction', err);
@@ -50,7 +51,7 @@ export default function AuctionDetailPage() {
     if (!token) return navigate('/login', { state: { from: `/auction/${id}` } });
 
     const amountNum = Number(bidAmount);
-    const minNext = auction.currentPrice + (auction.incrementAmount || 50);
+    const minNext = auction.currentPrice + (auction.incrementAmount || 250);
     if (amountNum < minNext) {
       setError(`Minimum bid is ${formatPrice(minNext)}`);
       return;
@@ -63,7 +64,7 @@ export default function AuctionDetailPage() {
       const updated = await placeBid(id, amountNum);
       setAuction(updated);
       setSuccess('Your bid was placed successfully! 🎉');
-      setBidAmount(updated.currentPrice + (updated.incrementAmount || 50));
+      setBidAmount(updated.currentPrice + (updated.incrementAmount || 250));
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to place bid. Please try again.');
     } finally {
@@ -102,7 +103,7 @@ export default function AuctionDetailPage() {
   const mins = Math.floor((totalSecs % 3600) / 60);
   const secs = totalSecs % 60;
 
-  const minNextBid = auction.currentPrice + (auction.incrementAmount || 50);
+  const minNextBid = auction.currentPrice + (auction.incrementAmount || 250);
 
   // Check user's current bid status
   const currentUserId = user?._id || user?.id;
@@ -110,6 +111,8 @@ export default function AuctionDetailPage() {
   const isUserWinning = currentUserId && highestBid && highestBid.bidderId?.toString() === currentUserId?.toString();
   const hasUserBid = currentUserId && auction.bids?.some(b => b.bidderId?.toString() === currentUserId?.toString());
   const isUserOutbid = hasUserBid && !isUserWinning && (isLive || isEnding);
+
+  const imagesList = auction.images && auction.images.length > 0 ? auction.images : [auction.image];
 
   // Anonymize name: "Priya Sharma" -> "Priya S."
   const anonymize = (name) => {
@@ -138,30 +141,64 @@ export default function AuctionDetailPage() {
         <h1 className="font-bold text-sm truncate flex-1" style={{ color: 'var(--pink-mauve)' }}>
           {auction.title}
         </h1>
+        {auction.verificationStatus === 'verified' && (
+          <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-300 flex items-center gap-1">
+            <span>🛡️</span> Verified by Looped
+          </span>
+        )}
       </div>
 
-      {/* Hero Image */}
-      <div className="relative max-w-lg mx-auto overflow-hidden bg-pink-50" style={{ maxHeight: '420px' }}>
-        <img
-          src={auction.image}
-          alt={auction.title}
-          className="w-full object-cover max-h-[420px]"
-        />
+      {/* Hero Image & Gallery Carousel */}
+      <div className="relative max-w-lg mx-auto overflow-hidden bg-pink-50">
+        <div className="relative h-[380px] w-full">
+          <img
+            src={imagesList[selectedImageIdx] || auction.image}
+            alt={auction.title}
+            className="w-full h-full object-cover transition-all duration-300"
+          />
 
-        {/* Live Badge */}
-        <div className="absolute top-3 left-3">
-          {(isLive || isEnding) && (
-            <span className="bg-rose-600 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-md flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-white animate-ping" />
-              {isEnding ? 'ENDING SOON' : 'LIVE AUCTION'}
+          {/* Live Badge */}
+          <div className="absolute top-3 left-3 flex flex-col gap-1.5">
+            {(isLive || isEnding) && (
+              <span className="bg-rose-600 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-md flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-white animate-ping" />
+                {isEnding ? 'ENDING SOON' : 'LIVE AUCTION'}
+              </span>
+            )}
+            <span className="bg-white/90 backdrop-blur text-pink-700 text-[10px] font-bold px-2.5 py-1 rounded-full shadow-sm">
+              💎 {auction.brand || 'Luxury Drop'}
             </span>
+          </div>
+
+          {/* Image count pill */}
+          {imagesList.length > 1 && (
+            <div className="absolute bottom-3 right-3 bg-black/60 text-white text-[11px] font-semibold px-2.5 py-1 rounded-full backdrop-blur-xs">
+              {selectedImageIdx + 1} / {imagesList.length}
+            </div>
           )}
         </div>
+
+        {/* Gallery Thumbnails */}
+        {imagesList.length > 1 && (
+          <div className="flex gap-2 p-3 bg-white/70 border-b overflow-x-auto scrollbar-none" style={{ borderColor: 'var(--pink-cotton)' }}>
+            {imagesList.map((imgUrl, idx) => (
+              <button
+                key={idx}
+                onClick={() => setSelectedImageIdx(idx)}
+                className={`relative flex-shrink-0 w-16 h-16 rounded-xl overflow-hidden border-2 transition ${
+                  selectedImageIdx === idx ? 'border-pink-500 scale-105 shadow-sm' : 'border-gray-200 opacity-70'
+                }`}
+              >
+                <img src={imgUrl} alt={`Thumbnail ${idx + 1}`} className="w-full h-full object-cover" />
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Main Details & Live Bid Stats */}
       <div className="p-5 max-w-lg mx-auto space-y-4">
-        {/* Title & Description */}
+        {/* Title, Brand, Category & Authenticity Badge */}
         <div
           className="card p-5 border"
           style={{
@@ -172,18 +209,47 @@ export default function AuctionDetailPage() {
         >
           <div className="flex justify-between items-start mb-2">
             <div>
-              <p className="text-xs font-bold uppercase tracking-wider mb-0.5" style={{ color: 'var(--pink-hot)', fontFamily: "'Fredoka', sans-serif" }}>
-                Curated Drop by {auction.sellerName}
-              </p>
-              <h1 className="text-2xl font-bold leading-tight" style={{ fontFamily: "'Playfair Display', serif", color: 'var(--pink-mauve)' }}>
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                <span className="text-xs font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-pink-100 text-pink-700" style={{ fontFamily: "'Fredoka', sans-serif" }}>
+                  {auction.brand}
+                </span>
+                <span className="text-xs font-semibold text-gray-500">
+                  {auction.category}
+                </span>
+                {auction.size && (
+                  <span className="text-xs font-semibold text-gray-600 bg-gray-100 px-2 py-0.5 rounded-md">
+                    Size: {auction.size}
+                  </span>
+                )}
+              </div>
+              <h1 className="text-2xl font-bold leading-tight mt-1" style={{ fontFamily: "'Playfair Display', serif", color: 'var(--pink-mauve)' }}>
                 {auction.title}
               </h1>
             </div>
           </div>
 
-          <p className="text-xs leading-relaxed" style={{ color: 'var(--ink)' }}>
-            {auction.description || 'Rare authenticated vintage piece.'}
+          <div className="flex items-center gap-2 text-xs text-gray-500 mb-3">
+            <span>Curated Drop by <strong>{auction.sellerName}</strong></span>
+            <span>•</span>
+            <span className="text-emerald-700 font-semibold flex items-center gap-1">
+              ✓ Verified by Looped
+            </span>
+          </div>
+
+          <p className="text-xs leading-relaxed text-gray-700">
+            {auction.description || 'Authenticated luxury designer piece.'}
           </p>
+
+          {/* Authenticity Guarantee Card */}
+          <div className="mt-4 p-3 rounded-2xl bg-gradient-to-r from-pink-50 to-rose-50 border border-pink-200 flex items-center gap-3">
+            <span className="text-2xl">🛡️</span>
+            <div>
+              <p className="text-xs font-bold text-pink-900">Looped Luxury Guarantee</p>
+              <p className="text-[10px] text-pink-700">
+                Purchase invoice and provenance verified by Looped specialists before listing.
+              </p>
+            </div>
+          </div>
 
           {/* Current Highest Bid Highlight */}
           <div className="mt-4 pt-4 border-t flex items-center justify-between" style={{ borderColor: 'var(--pink-cotton)' }}>
@@ -194,8 +260,9 @@ export default function AuctionDetailPage() {
               </p>
             </div>
             <div className="text-right">
-              <p className="text-xs text-gray-500 font-medium">Starting Price</p>
-              <p className="text-sm font-semibold" style={{ color: 'var(--ink)' }}>{formatPrice(auction.startingPrice)}</p>
+              <p className="text-xs text-gray-500 font-medium">Declared Retail Value</p>
+              <p className="text-sm font-semibold" style={{ color: 'var(--ink)' }}>{formatPrice(auction.declaredValue || 5000)}</p>
+              <p className="text-[10px] text-gray-400">Starting: {formatPrice(auction.startingPrice)}</p>
             </div>
           </div>
         </div>
@@ -300,7 +367,7 @@ export default function AuctionDetailPage() {
                     value={bidAmount}
                     onChange={e => setBidAmount(e.target.value)}
                     min={minNextBid}
-                    step={auction.incrementAmount || 50}
+                    step={auction.incrementAmount || 250}
                     className="input text-lg font-bold"
                     placeholder={`e.g. ${minNextBid}`}
                     required
@@ -308,9 +375,9 @@ export default function AuctionDetailPage() {
                 </div>
               </div>
 
-              {/* Quick increment buttons */}
+              {/* Luxury increment buttons */}
               <div className="flex gap-2">
-                {[50, 100, 250, 500].map(inc => (
+                {[250, 500, 1000, 2500].map(inc => (
                   <button
                     key={inc}
                     type="button"

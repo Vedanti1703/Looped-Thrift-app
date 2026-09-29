@@ -24,22 +24,35 @@ const upload = multer({
   },
 })
 
+// Proof documents uploader (allows images AND PDF up to 10MB)
+const proofUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max
+  fileFilter: (req, file, cb) => {
+    const ok = /(image\/(jpeg|jpg|png|webp)|application\/pdf)/.test(file.mimetype)
+    ok ? cb(null, true) : cb(new Error('Only JPG, PNG, WEBP, and PDF files are allowed for proof documents'))
+  }
+})
+
 // Helper: upload buffer to Cloudinary and return URL
-function uploadToCloudinary(buffer, filename) {
+function uploadToCloudinary(buffer, filename, isPdf = false) {
   return new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      {
-        folder:   'looped-products',
-        public_id: `${Date.now()}-${Math.round(Math.random() * 1e6)}`,
-        transformation: [
-          { width: 800, height: 1000, crop: 'limit', quality: 'auto', fetch_format: 'auto' }
-        ],
-      },
-      (error, result) => {
-        if (error) reject(error)
-        else resolve(result.secure_url) // https:// URL — works everywhere forever
-      }
-    )
+    const options = {
+      folder: isPdf ? 'looped-proof-docs' : 'looped-products',
+      public_id: `${Date.now()}-${Math.round(Math.random() * 1e6)}`,
+      resource_type: isPdf ? 'raw' : 'image'
+    };
+
+    if (!isPdf) {
+      options.transformation = [
+        { width: 1200, height: 1600, crop: 'limit', quality: 'auto', fetch_format: 'auto' }
+      ];
+    }
+
+    const stream = cloudinary.uploader.upload_stream(options, (error, result) => {
+      if (error) reject(error)
+      else resolve(result.secure_url) // https:// URL — works everywhere forever
+    })
     stream.end(buffer)
   })
 }
@@ -81,6 +94,23 @@ router.post('/images', auth, upload.fields([
   } catch (err) {
     console.error('Cloudinary multi-upload error:', err.message)
     res.status(500).json({ message: 'Image upload failed: ' + err.message })
+  }
+})
+
+// POST /upload/proof — single authenticity/invoice proof document (images or PDF up to 10MB)
+router.post('/proof', auth, proofUpload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ message: 'No proof document provided' })
+    const isPdf = req.file.mimetype === 'application/pdf'
+    const url = await uploadToCloudinary(req.file.buffer, req.file.originalname, isPdf)
+    res.json({
+      url,
+      type: req.body.type || (isPdf ? 'pdf' : 'image'),
+      originalName: req.file.originalname
+    })
+  } catch (err) {
+    console.error('Proof upload error:', err.message)
+    res.status(500).json({ message: 'Proof upload failed: ' + err.message })
   }
 })
 

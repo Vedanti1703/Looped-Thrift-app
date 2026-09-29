@@ -25,3 +25,14 @@ export const getMyAuctions = async () => {
   const res = await api.get('/auction/mine');
   return res.data;
 };
+
+export const getAdminAuctions = async (status) => {
+  const url = status ? `/auction/admin/pending?status=${status}` : '/auction/admin/pending';
+  const res = await api.get(url);
+  return res.data;
+};
+
+export const verifyAuction = async (id, action, note) => {
+  const res = await api.post(`/auction/admin/${id}/verify`, { action, note });
+  return res.data;
+};

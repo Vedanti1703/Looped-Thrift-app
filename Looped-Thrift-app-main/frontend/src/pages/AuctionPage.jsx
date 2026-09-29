@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getAuctions } from '../services/auctionService';
+import { getAuctions, getMyAuctions } from '../services/auctionService';
+import { useAuth } from '../context/AuthContext';
 import { formatPrice } from '../utils/helpers';
 import Spinner from '../components/Spinner';
 
 export default function AuctionPage() {
   const navigate = useNavigate();
+  const { user, token } = useAuth();
   const [tab, setTab] = useState('all'); // 'all' | 'live' | 'ending' | 'upcoming' | 'mine'
   const [auctions, setAuctions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -19,15 +21,26 @@ export default function AuctionPage() {
 
   useEffect(() => {
     fetchData();
-  }, [tab]);
+  }, [tab, token]);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const data = await getAuctions(tab === 'mine' ? 'all' : tab);
-      setAuctions(data);
+      if (tab === 'mine') {
+        if (!token) {
+          setAuctions([]);
+          setLoading(false);
+          return;
+        }
+        const data = await getMyAuctions();
+        setAuctions(data || []);
+      } else {
+        const data = await getAuctions(tab);
+        setAuctions(data || []);
+      }
     } catch (err) {
       console.error('Failed to load auctions', err);
+      setAuctions([]);
     } finally {
       setLoading(false);
     }
@@ -46,6 +59,8 @@ export default function AuctionPage() {
     return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const isAdmin = user?.role === 'admin' || user?.email?.includes('admin@looped.app');
+
   return (
     <div className="min-h-screen pb-28" style={{ backgroundColor: 'var(--cream)' }}>
       {/* Header */}
@@ -58,32 +73,53 @@ export default function AuctionPage() {
         }}
       >
         <div className="flex items-center gap-2">
-          <span className="text-2xl">🔨</span>
+          <span className="text-2xl">💎</span>
           <div>
             <h1 className="text-xl font-bold leading-none" style={{ fontFamily: "'Playfair Display', serif", color: 'var(--pink-mauve)' }}>
-              Live Auctions ✦
+              Luxury Drops ✦
             </h1>
             <p className="text-[10.5px] mt-0.5" style={{ color: 'var(--pink-deep)', fontFamily: "'Fredoka', sans-serif" }}>
-              Real-time bidding & rare vintage drops
+              Verified Designer & Couture Auctions
             </p>
           </div>
         </div>
-        <button
-          onClick={fetchData}
-          className="text-xs font-semibold px-3 py-1 rounded-full border transition"
-          style={{ backgroundColor: 'var(--pink-blush)', borderColor: 'var(--pink-cotton)', color: 'var(--pink-deep)', fontFamily: "'Fredoka', sans-serif" }}
-        >
-          Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <button
+              onClick={() => navigate('/admin/auctions')}
+              className="text-xs font-bold px-3 py-1.5 rounded-full bg-purple-100 text-purple-700 border border-purple-300 hover:bg-purple-200 transition"
+              title="Admin drop verification portal"
+            >
+              🛡️ Admin Reviews
+            </button>
+          )}
+          <button
+            onClick={() => navigate('/auction/create')}
+            className="flex items-center gap-1 text-xs font-bold px-3.5 py-1.5 rounded-full text-white shadow-xs transition hover:opacity-95"
+            style={{ backgroundColor: 'var(--pink-hot)', fontFamily: "'Fredoka', sans-serif" }}
+            title="Submit luxury item for drop"
+          >
+            <span className="text-sm leading-none">+</span> Submit Drop
+          </button>
+          <button
+            onClick={fetchData}
+            className="text-xs font-semibold px-2.5 py-1.5 rounded-full border transition"
+            style={{ backgroundColor: 'var(--pink-blush)', borderColor: 'var(--pink-cotton)', color: 'var(--pink-deep)', fontFamily: "'Fredoka', sans-serif" }}
+            title="Refresh auctions"
+          >
+            🔄
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
       <div className="flex gap-2 overflow-x-auto px-4 py-3 scrollbar-none">
         {[
-          { key: 'all', label: 'All Drops' },
+          { key: 'all', label: 'All Luxury Drops' },
           { key: 'live', label: 'Live Now 🔴' },
           { key: 'ending', label: 'Ending Soon 🔥' },
           { key: 'upcoming', label: 'Upcoming ⏳' },
+          { key: 'mine', label: 'My Drops & Bids 🙋‍♀️' },
         ].map(t => (
           <button
             key={t.key}
@@ -111,16 +147,37 @@ export default function AuctionPage() {
           </div>
         ) : auctions.length === 0 ? (
           <div
-            className="text-center py-16 rounded-3xl border border-dashed p-6 my-4"
+            className="text-center py-16 rounded-3xl border border-dashed p-6 my-4 space-y-3"
             style={{ backgroundColor: 'var(--ivory)', borderColor: 'var(--pink-cotton)' }}
           >
-            <p className="text-4xl mb-2">🏷️</p>
-            <h3 className="text-base font-bold mb-1" style={{ fontFamily: "'Playfair Display', serif", color: 'var(--pink-mauve)' }}>
-              No auctions in this category right now
+            <p className="text-4xl animate-bounce">💎</p>
+            <h3 className="text-base font-bold" style={{ fontFamily: "'Playfair Display', serif", color: 'var(--pink-mauve)' }}>
+              {tab === 'mine'
+                ? (!token ? 'Log in to view your auctions and bids' : "You haven't submitted or bid on any luxury drops yet")
+                : 'No luxury drops in this category right now'}
             </h3>
-            <p className="text-xs text-gray-500 max-w-xs mx-auto mb-4">
-              Check back soon for curated vintage auctions dropping every weekend!
+            <p className="text-xs text-gray-500 max-w-xs mx-auto">
+              {tab === 'mine'
+                ? (!token ? 'Sign in to access your personal drops, verification status, and bidding history.' : 'Submit your designer pieces for authentication or explore live verified drops!')
+                : 'All auction drops undergo rigorous authenticity verification. Check back soon or submit your luxury piece!'}
             </p>
+            <div className="pt-2">
+              {tab === 'mine' && !token ? (
+                <button
+                  onClick={() => navigate('/login', { state: { from: '/auction' } })}
+                  className="btn-primary text-xs px-5 py-2.5 shadow-md"
+                >
+                  Log In to View ✦
+                </button>
+              ) : (
+                <button
+                  onClick={() => navigate('/auction/create')}
+                  className="btn-primary text-xs px-5 py-2.5 shadow-md inline-flex items-center gap-1.5"
+                >
+                  <span>+</span> Submit a Luxury Drop ✦
+                </button>
+              )}
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -129,6 +186,7 @@ export default function AuctionPage() {
               const isEnding = auction.status === 'ending';
               const isUpcoming = auction.status === 'upcoming';
               const isSettled = auction.status === 'settled' || auction.status === 'closed';
+              const vStatus = auction.verificationStatus;
 
               return (
                 <div
@@ -149,23 +207,33 @@ export default function AuctionPage() {
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
 
-                    {/* Status Badge */}
-                    <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
-                      {isLive && (
+                    {/* Verification & Live Badges */}
+                    <div className="absolute top-2.5 left-2.5 flex flex-col gap-1">
+                      {tab === 'mine' && vStatus === 'pending' && (
+                        <span className="bg-amber-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-sm flex items-center gap-1">
+                          ⏳ Verification Pending
+                        </span>
+                      )}
+                      {tab === 'mine' && vStatus === 'rejected' && (
+                        <span className="bg-rose-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-sm flex items-center gap-1" title={auction.verificationNote}>
+                          ✕ Rejected: {auction.verificationNote?.slice(0, 20) || 'Review details'}
+                        </span>
+                      )}
+                      {vStatus === 'verified' && isLive && (
                         <span className="bg-emerald-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-sm flex items-center gap-1">
                           <span className="w-2 h-2 rounded-full bg-white animate-ping" />
                           LIVE NOW
                         </span>
                       )}
-                      {isEnding && (
+                      {vStatus === 'verified' && isEnding && (
                         <span className="bg-rose-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-sm flex items-center gap-1">
                           <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
                           ENDING SOON
                         </span>
                       )}
-                      {isUpcoming && (
+                      {vStatus === 'verified' && isUpcoming && (
                         <span className="bg-gray-700 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-sm">
-                          UPCOMING
+                          UPCOMING DROP
                         </span>
                       )}
                       {isSettled && (
@@ -175,8 +243,13 @@ export default function AuctionPage() {
                       )}
                     </div>
 
+                    {/* Brand Pill */}
+                    <div className="absolute top-2.5 right-2.5 bg-white/90 backdrop-blur-xs text-pink-700 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shadow-xs">
+                      {auction.brand || 'Designer'}
+                    </div>
+
                     {/* Countdown Overlay */}
-                    {!isSettled && !isUpcoming && (
+                    {vStatus === 'verified' && !isSettled && !isUpcoming && (
                       <div className="absolute bottom-2.5 right-2.5 bg-black/80 backdrop-blur-xs text-white text-xs font-bold px-3 py-1 rounded-xl flex items-center gap-1.5 shadow-md">
                         <span>⏱️</span>
                         <span>{formatCountdown(auction.endTime)}</span>
@@ -187,9 +260,10 @@ export default function AuctionPage() {
                   {/* Info Details */}
                   <div className="p-4 flex-1 flex flex-col justify-between">
                     <div>
-                      <p className="text-xs font-semibold mb-1" style={{ color: 'var(--pink-mauve)' }}>
-                        {auction.sellerName}
-                      </p>
+                      <div className="flex items-center justify-between text-xs font-semibold mb-1">
+                        <span style={{ color: 'var(--pink-mauve)' }}>{auction.sellerName}</span>
+                        <span className="text-[10px] text-gray-400">{auction.category}</span>
+                      </div>
                       <h2 className="text-sm font-bold leading-snug mb-2" style={{ fontFamily: "'Playfair Display', serif", color: 'var(--ink)' }}>
                         {auction.title}
                       </h2>
@@ -203,9 +277,9 @@ export default function AuctionPage() {
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="text-[11px] text-gray-400">Activity</p>
-                        <p className="text-xs font-semibold" style={{ color: 'var(--pink-deep)', fontFamily: "'Fredoka', sans-serif" }}>
-                          {auction.bids?.length || 0} bids • {auction.totalBidders || 0} bidders
+                        <p className="text-[11px] text-gray-400">Declared Value</p>
+                        <p className="text-xs font-bold text-gray-700">
+                          {formatPrice(auction.declaredValue || 5000)}
                         </p>
                       </div>
                     </div>
