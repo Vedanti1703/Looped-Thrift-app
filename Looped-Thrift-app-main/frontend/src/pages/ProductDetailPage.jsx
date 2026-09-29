@@ -204,9 +204,9 @@ export default function ProductDetailPage() {
   const sellerIdStr = product?.sellerId?.toString()
   const isSeller = Boolean(userIdStr && sellerIdStr && userIdStr === sellerIdStr)
 
-  const isRentable = product.listingType === 'rent' || product.listingType === 'both' || Boolean(product.rentPricePerDay) || product.rentAvailable !== false
-  const rentPerDay = product.rentPricePerDay || Math.max(50, Math.round(((product.price || 1000) * 0.05) / 10) * 10)
-  const depositAmt = product.securityDeposit || Math.round(((product.price || 1000) * 0.3) / 50) * 50
+  const isRentable = (product.listingType === 'rent' || product.listingType === 'both') && Boolean(product.rentPricePerDay && product.rentPricePerDay > 0)
+  const rentPerDay = product.rentPricePerDay || 0
+  const depositAmt = product.securityDeposit || 0
 
   const rentalDays = (startDate && endDate)
     ? Math.max(0, Math.ceil((new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24)))

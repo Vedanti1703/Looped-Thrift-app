@@ -1,26 +1,30 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getRentableFeed } from '../services/rentalService'
-import ProductCard from '../components/ProductCard'
 import Skeleton from '../components/Skeleton'
 import { formatPrice, conditionColor, truncate } from '../utils/helpers'
 
 export default function RentPage() {
   const navigate = useNavigate()
-  const [items, setItems]     = useState([])
+  const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
-  const [error, setError]     = useState(null)
+  const [error, setError] = useState(null)
+  const [occasionFilter, setOccasionFilter] = useState('all') // 'all' | 'Wedding' | 'Party' | 'Formal'
 
   useEffect(() => {
     fetchFeed()
-  }, [])
+  }, [occasionFilter])
 
   const fetchFeed = async () => {
     setLoading(true)
     setError(null)
     try {
       const data = await getRentableFeed()
-      setItems(Array.isArray(data) ? data : data?.products || [])
+      let feed = Array.isArray(data) ? data : data?.products || []
+      if (occasionFilter !== 'all') {
+        feed = feed.filter(p => (p.occasion || '').toLowerCase() === occasionFilter.toLowerCase())
+      }
+      setItems(feed)
     } catch (err) {
       setError('Could not load rentable items. Please pull down to refresh.')
     } finally {
@@ -29,30 +33,68 @@ export default function RentPage() {
   }
 
   return (
-    <div className="min-h-screen bg-pink-50 pb-28">
+    <div className="min-h-screen pb-28" style={{ backgroundColor: 'var(--cream)' }}>
       {/* Header */}
-      <div className="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-pink-100 px-4 py-3.5 flex items-center justify-between">
+      <div
+        className="sticky top-0 z-40 border-b px-4 py-3.5 flex items-center justify-between"
+        style={{
+          backgroundColor: 'rgba(251, 244, 236, 0.94)',
+          backdropFilter: 'blur(12px)',
+          borderColor: 'var(--pink-cotton)'
+        }}
+      >
         <div className="flex items-center gap-2">
-          <span className="text-xl">👗</span>
+          <span className="text-2xl">👗</span>
           <div>
-            <h1 className="font-bold text-gray-900 text-base leading-none">Rent Fashion</h1>
-            <p className="text-[10px] text-pink-500 font-semibold mt-0.5">AI-Valuated Daily Rentals</p>
+            <h1 className="font-bold text-base leading-none" style={{ fontFamily: "'Playfair Display', serif", color: 'var(--pink-mauve)' }}>
+              Luxury Occasion Rentals ✦
+            </h1>
+            <p className="text-[10px] mt-0.5" style={{ color: 'var(--pink-deep)', fontFamily: "'Fredoka', sans-serif" }}>
+              Designer Bridal, Cocktail & Formal Wear by the Day
+            </p>
           </div>
         </div>
         <button
           onClick={fetchFeed}
-          className="text-xs text-gray-400 hover:text-pink-500 font-medium transition-colors"
+          className="text-xs font-semibold px-2.5 py-1.5 rounded-full border transition"
+          style={{ backgroundColor: 'var(--pink-blush)', borderColor: 'var(--pink-cotton)', color: 'var(--pink-deep)', fontFamily: "'Fredoka', sans-serif" }}
         >
-          Refresh
+          🔄 Refresh
         </button>
       </div>
 
+      {/* Occasion Filter Chips */}
+      <div className="flex gap-2 overflow-x-auto px-4 py-3 scrollbar-none">
+        {[
+          { key: 'all', label: 'All Premium Rentals' },
+          { key: 'Wedding', label: '💍 Wedding & Bridal' },
+          { key: 'Party', label: '🍸 Party & Cocktail' },
+          { key: 'Formal', label: '👔 Formal & Black Tie' },
+        ].map(chip => (
+          <button
+            key={chip.key}
+            onClick={() => setOccasionFilter(chip.key)}
+            className={`text-xs px-3.5 py-1.5 rounded-full font-bold flex-shrink-0 transition-all ${
+              occasionFilter === chip.key ? 'text-white shadow-xs' : 'border'
+            }`}
+            style={{
+              backgroundColor: occasionFilter === chip.key ? 'var(--pink-hot)' : 'var(--ivory)',
+              borderColor: 'var(--pink-cotton)',
+              color: occasionFilter === chip.key ? '#fff' : 'var(--pink-mauve)',
+              fontFamily: "'Fredoka', sans-serif"
+            }}
+          >
+            {chip.label}
+          </button>
+        ))}
+      </div>
+
       {/* Main Content */}
-      <div className="px-4 pt-4">
+      <div className="px-4">
         {loading ? (
           <div className="grid grid-cols-2 gap-3">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="card p-3 space-y-2">
+              <div key={i} className="card p-3 space-y-2" style={{ backgroundColor: 'var(--ivory)', borderColor: 'var(--pink-cotton)' }}>
                 <Skeleton height="180px" />
                 <Skeleton height="16px" width="80%" />
                 <Skeleton height="14px" width="50%" />
@@ -64,71 +106,76 @@ export default function RentPage() {
             {error}
           </div>
         ) : items.length === 0 ? (
-          <div className="text-center py-20 bg-white rounded-3xl border border-pink-100 p-6 my-4 shadow-2xs">
-            <div className="text-5xl mb-3">👗</div>
-            <h3 className="font-bold text-gray-800 text-base mb-1">No items available for rent yet</h3>
-            <p className="text-xs text-gray-500 mb-5 max-w-xs mx-auto">
-              Be the first to list your closet items for daily rental and earn extra income!
+          <div
+            className="text-center py-16 rounded-3xl border border-dashed p-6 my-4 space-y-3"
+            style={{ backgroundColor: 'var(--ivory)', borderColor: 'var(--pink-cotton)' }}
+          >
+            <div className="text-4xl animate-bounce">👗</div>
+            <h3 className="font-bold text-base" style={{ fontFamily: "'Playfair Display', serif", color: 'var(--pink-mauve)' }}>
+              No occasion items found
+            </h3>
+            <p className="text-xs text-gray-500 max-w-xs mx-auto">
+              Only authentic designer occasion pieces (value ≥ ₹3,000) are listed for rental on Looped.
             </p>
-            <button
-              onClick={() => navigate('/upload')}
-              className="btn-primary max-w-xs mx-auto text-xs py-2.5"
-            >
-              List an Item for Rent
-            </button>
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3">
             {items.map(product => {
-              const isFairPrice = product.rentPriceMatchScore > 0.85
-
               return (
                 <div
                   key={product._id || product.id}
                   onClick={() => navigate(`/product/${product._id || product.id}`)}
                   className="card cursor-pointer hover:shadow-md transition-all group overflow-hidden relative flex flex-col justify-between"
+                  style={{
+                    backgroundColor: 'var(--ivory)',
+                    borderColor: 'var(--pink-cotton)',
+                    borderRadius: '20px'
+                  }}
                 >
                   {/* Image Container */}
-                  <div className="relative h-48 bg-pink-50 overflow-hidden">
+                  <div className="relative h-52 overflow-hidden" style={{ backgroundColor: 'var(--pink-blush)' }}>
                     <img
                       src={product.image}
                       alt={product.title}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      onError={e => { e.target.src = `https://picsum.photos/seed/${product._id}/400/500` }}
                     />
 
-                    {/* AI Fair Price Badge */}
-                    {isFairPrice && (
-                      <div className="absolute top-2 left-2 bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-xs flex items-center gap-1 z-10">
-                        <span>⚡</span> Fair Price
+                    {/* Occasion Badge */}
+                    {product.occasion && (
+                      <div className="absolute top-2 left-2 bg-pink-600/90 backdrop-blur-xs text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full shadow-xs flex items-center gap-1 z-10">
+                        {product.occasion === 'Wedding' ? '💍' : product.occasion === 'Party' ? '🍸' : '👔'} {product.occasion}
                       </div>
                     )}
 
-                    {/* Daily Rent Overlay Pill */}
-                    <div className="absolute bottom-2 right-2 bg-black/75 backdrop-blur-xs text-white text-xs font-bold px-2.5 py-1 rounded-xl shadow-xs">
+                    {/* Daily Rent Pill */}
+                    <div className="absolute bottom-2 right-2 bg-black/80 backdrop-blur-xs text-white text-xs font-bold px-2.5 py-1 rounded-xl shadow-xs">
                       ₹{product.rentPricePerDay || 0}<span className="text-[10px] font-normal text-gray-300">/day</span>
                     </div>
                   </div>
 
-                  {/* Info */}
+                  {/* Info Details */}
                   <div className="p-3 flex-1 flex flex-col justify-between">
                     <div>
-                      <p className="text-xs font-bold text-gray-900 leading-snug mb-1">
-                        {truncate(product.title, 32)}
-                      </p>
-                      <div className="flex items-center gap-1.5 flex-wrap text-[11px] mb-2">
-                        <span className={`tag-badge ${conditionColor[product.condition] || 'bg-gray-100 text-gray-600'}`}>
-                          {product.condition}
+                      <div className="flex items-center justify-between text-[11px] mb-1">
+                        <span className="font-extrabold uppercase text-pink-700 truncate max-w-[90px]">
+                          {product.brand || 'Designer'}
                         </span>
-                        {product.brand && (
-                          <span className="text-gray-400 font-medium truncate max-w-[80px]">{product.brand}</span>
+                        {product.dryCleaningIncluded && (
+                          <span className="text-[9px] text-emerald-700 font-semibold bg-emerald-50 px-1.5 py-0.5 rounded">
+                            Cleaned ✓
+                          </span>
                         )}
                       </div>
+                      <p className="text-xs font-bold leading-snug mb-2" style={{ fontFamily: "'Playfair Display', serif", color: 'var(--ink)' }}>
+                        {truncate(product.title, 34)}
+                      </p>
                     </div>
 
-                    <div className="pt-2 border-t border-pink-50 flex items-center justify-between text-[11px] text-gray-500">
-                      <span>Deposit:</span>
-                      <strong className="text-gray-800 font-semibold">{formatPrice(product.securityDeposit || 0)}</strong>
+                    <div className="pt-2 border-t flex items-center justify-between text-[11px] text-gray-500" style={{ borderColor: 'var(--pink-cotton)' }}>
+                      <span>Security Deposit:</span>
+                      <strong className="text-gray-900 font-bold" style={{ fontFamily: "'Fredoka', sans-serif" }}>
+                        {formatPrice(product.securityDeposit || 0)}
+                      </strong>
                     </div>
                   </div>
                 </div>

@@ -27,6 +27,8 @@ const productSchema = new mongoose.Schema({
   rentPricePerDay: { type: Number },
   securityDeposit: { type: Number },
   rentAvailable: { type: Boolean, default: true },
+  occasion: { type: String, default: '' }, // Wedding, Party, Formal, Festive, etc.
+  dryCleaningIncluded: { type: Boolean, default: true },
   conditionImages: [{ type: String }],
   conditionNotes: { type: String, default: '' },
   embedding: { type: [Number], default: undefined },
@@ -40,6 +42,5 @@ const productSchema = new mongoose.Schema({
     footLength: Number
   }
 }, { timestamps: true });
-
 
 module.exports = mongoose.model('Product', productSchema);
