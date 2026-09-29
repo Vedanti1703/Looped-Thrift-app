@@ -52,19 +52,19 @@ export default function ProductCard({ product, size = 'md' }) {
         </div>
 
         {/* Info */}
-        <div className="p-3">
-          <p className="text-sm font-semibold text-gray-800 leading-snug mb-1">
-            {truncate(product.title, isSmall ? 22 : 36)}
+        <div className="p-3.5">
+          <p className="text-sm font-semibold leading-snug mb-1.5 line-clamp-2" style={{ color: 'var(--ink)', fontFamily: "'Quicksand', sans-serif" }}>
+            {truncate(product.title, isSmall ? 22 : 45)}
           </p>
           <div className="flex items-baseline gap-2 mb-2">
-            <span className="text-pink-600 font-bold text-sm">{formatPrice(product.price)}</span>
+            <span className="font-bold text-sm" style={{ color: 'var(--pink-deep)', fontFamily: "'Fredoka', sans-serif" }}>{formatPrice(product.price)}</span>
             {product.originalPrice && (
-              <span className="text-gray-400 text-xs line-through">{formatPrice(product.originalPrice)}</span>
+              <span className="text-xs line-through" style={{ color: '#a08590' }}>{formatPrice(product.originalPrice)}</span>
             )}
           </div>
           {/* Condition badge & Carbon badge */}
           <div className="flex items-center gap-1.5 flex-wrap mb-1">
-            <span className={`tag-badge ${conditionColor[product.condition] || 'bg-gray-100 text-gray-600'}`}>
+            <span className={`tag-badge ${conditionColor[product.condition] || 'bg-pink-100 text-pink-700'}`}>
               {product.condition}
             </span>
             <CarbonSavingsBadge category={product.category} condition={product.condition} />

@@ -113,7 +113,7 @@ export default function AuctionPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 overflow-x-auto px-4 py-3 scrollbar-none">
+      <div className="flex flex-wrap gap-2 px-4 py-3">
         {[
           { key: 'all', label: 'All Luxury Drops' },
           { key: 'live', label: 'Live Now 🔴' },

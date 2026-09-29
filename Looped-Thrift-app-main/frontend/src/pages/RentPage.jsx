@@ -64,7 +64,7 @@ export default function RentPage() {
       </div>
 
       {/* Occasion Filter Chips */}
-      <div className="flex gap-2 overflow-x-auto px-4 py-3 scrollbar-none">
+      <div className="flex flex-wrap gap-2 px-4 py-3">
         {[
           { key: 'all', label: 'All Premium Rentals' },
           { key: 'Wedding', label: '💍 Wedding & Bridal' },

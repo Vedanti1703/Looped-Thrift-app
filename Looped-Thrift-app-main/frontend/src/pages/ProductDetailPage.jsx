@@ -613,7 +613,7 @@ export default function ProductDetailPage() {
           <h3 className="font-bold mb-3 flex items-center gap-1.5" style={{ fontFamily: "'Playfair Display', serif", color: 'var(--pink-deep)' }}>
             <span style={{ color: 'var(--gold)' }}>✦</span> Similar Items
           </h3>
-          <div className="scroll-row">
+          <div className="product-grid">
             {similar.map(p => <ProductCard key={p._id} product={p} size="sm" />)}
           </div>
         </div>
@@ -625,7 +625,7 @@ export default function ProductDetailPage() {
           <h3 className="font-bold mb-3 flex items-center gap-1.5" style={{ fontFamily: "'Playfair Display', serif", color: 'var(--pink-deep)' }}>
             <span style={{ color: 'var(--gold)' }}>✦</span> Complete the Look
           </h3>
-          <div className="scroll-row">
+          <div className="product-grid">
             {completeTheLook.map(p => <ProductCard key={p._id} product={p} size="sm" />)}
           </div>
         </div>

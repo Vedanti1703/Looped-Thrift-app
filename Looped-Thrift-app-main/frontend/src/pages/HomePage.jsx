@@ -133,14 +133,14 @@ export default function HomePage() {
       </div>
 
       {/* Sections */}
-      <div className="mt-6 space-y-6 px-4">
+      <div className="mt-8 space-y-8 px-4">
         {loading ? (
           <GridSkeleton count={4} />
         ) : (
           SECTIONS.map(s => (
-            <section key={s.key}>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-bold text-lg flex items-center gap-1.5" style={{ fontFamily: "'Playfair Display', serif", color: 'var(--pink-deep)' }}>
+            <section key={s.key} className="pt-2">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold text-lg flex items-center gap-2" style={{ fontFamily: "'Playfair Display', serif", color: 'var(--pink-deep)' }}>
                   <span style={{ color: 'var(--gold)' }}>✦</span> {s.label}
                 </h3>
                 <button
@@ -155,7 +155,7 @@ export default function HomePage() {
               {sections[s.key]?.length === 0 ? (
                 <p className="text-sm py-4 text-center" style={{ color: '#8F3F63', opacity: 0.6 }}>No items yet</p>
               ) : (
-                <div className="grid grid-cols-2 gap-3">
+                <div className="product-grid">
                   {(sections[s.key] || []).slice(0, 4).map(p => (
                     <ProductCard key={p._id} product={p} />
                   ))}

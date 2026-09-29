@@ -66,15 +66,24 @@ exports.getProduct = async (req, res) => {
   }
 };
 
-// POST /products/search-visual — visual image search
+// POST /products/search-visual — visual image search & CV photo analysis
 exports.searchVisual = async (req, res) => {
   try {
-    const { imageUrl } = req.body;
+    const { imageUrl, mode } = req.body;
     if (!imageUrl) {
       return res.status(400).json({ message: 'imageUrl is required' });
     }
 
-    const { searchByImage } = require('../services/visualSearch');
+    const { searchByImage, analyseClothingPhoto } = require('../services/visualSearch');
+
+    if (mode === 'analyse' || mode === 'quality') {
+      const analysis = await analyseClothingPhoto(imageUrl);
+      return res.json({
+        success: true,
+        ...analysis
+      });
+    }
+
     const result = await searchByImage(imageUrl);
 
     if (!result.success) {
@@ -263,7 +272,11 @@ exports.seedProducts = async (req, res) => {
           { bidderId: assistant._id, bidderName: 'Simran K.', amount: 3900, timestamp: new Date(now.getTime() - 60 * 60 * 1000), isWinning: false },
           { bidderId: assistant._id, bidderName: 'Dev R.', amount: 4100, timestamp: new Date(now.getTime() - 30 * 60 * 1000), isWinning: false },
           { bidderId: assistant._id, bidderName: 'Priya S.', amount: 4200, timestamp: new Date(now.getTime() - 10 * 60 * 1000), isWinning: true },
-        ]
+        ],
+        declaredValue: 5000,
+        condition: 'Like New',
+        category: 'Designer Outerwear',
+        brand: 'Chrome Hearts'
       },
       {
         title: 'Archival Vivienne Westwood Corset Top',
@@ -279,7 +292,11 @@ exports.seedProducts = async (req, res) => {
         sellerId: assistant._id,
         sellerName: 'Tokyo Archive',
         totalBidders: 0,
-        bids: []
+        bids: [],
+        declaredValue: 7000,
+        condition: 'Like New',
+        category: 'Designer Wear',
+        brand: 'Vivienne Westwood'
       },
       {
         title: 'Limited Edition Jacquemus Le Chiquito Mini Bag',
@@ -300,7 +317,11 @@ exports.seedProducts = async (req, res) => {
           { bidderId: assistant._id, bidderName: 'Rohan V.', amount: 2500, timestamp: new Date(now.getTime() - 80 * 60 * 1000), isWinning: false },
           { bidderId: assistant._id, bidderName: 'Meera C.', amount: 2800, timestamp: new Date(now.getTime() - 45 * 60 * 1000), isWinning: false },
           { bidderId: assistant._id, bidderName: 'Ananya G.', amount: 3100, timestamp: new Date(now.getTime() - 15 * 60 * 1000), isWinning: true },
-        ]
+        ],
+        declaredValue: 3500,
+        condition: 'Good',
+        category: 'Luxury Bags',
+        brand: 'Jacquemus'
       }
     ]);
 
@@ -1126,6 +1147,307 @@ const dummyProducts = [
     description: 'Flared tiered bohemian skirt crafted with genuine hand-block indigo print. Unused with original shop tag.',
     views: 136,
     likes: 59
+  },
+
+  // ==========================================
+  // PART 2: Evening Gowns & Formal Dresses (10 items)
+  // ==========================================
+  {
+    title: 'Sabyasachi Champagne Tissue Organza Gown',
+    price: 18000,
+    originalPrice: 55000,
+    condition: 'Like New',
+    category: "Women's Dresses",
+    tags: ['gown', 'bridal', 'sabyasachi', 'champagne', 'luxury', 'festive'],
+    image: 'https://images.unsplash.com/photo-1594938298603-c8148c4b4ae4?w=600&h=700&fit=crop',
+    sellerName: 'Ananya R.',
+    brand: 'Sabyasachi',
+    size: 'S',
+    description: 'Ethereal champagne tissue organza gown with hand-embroidered floral motifs and sweeping train. Worn once at a wedding reception.',
+    views: 320,
+    likes: 145
+  },
+  {
+    title: 'Manish Malhotra Ivory Embroidered Cape Gown',
+    price: 22000,
+    originalPrice: 68000,
+    condition: 'Like New',
+    category: "Women's Dresses",
+    tags: ['gown', 'cape', 'embroidered', 'manish-malhotra', 'ivory', 'bridal'],
+    image: 'https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?w=600&h=700&fit=crop',
+    sellerName: 'Priya S.',
+    brand: 'Manish Malhotra',
+    size: 'M',
+    description: 'Stunning ivory silk base gown with fully embroidered cape overlay. Perfect for cocktail dinners and receptions.',
+    views: 280,
+    likes: 132
+  },
+  {
+    title: 'Anita Dongre Forest Green Lehenga Gown',
+    price: 8500,
+    originalPrice: 24000,
+    condition: 'Good',
+    category: "Women's Traditional",
+    tags: ['gown', 'lehenga', 'anita-dongre', 'green', 'festive', 'wedding'],
+    image: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=600&h=700&fit=crop',
+    sellerName: 'Meera K.',
+    brand: 'Anita Dongre',
+    size: 'S',
+    description: 'Forest green floral lehenga-gown hybrid with delicate hand-painted blossoms and flared hemline. Festive and regal.',
+    views: 195,
+    likes: 88
+  },
+  {
+    title: 'Zara Midnight Blue Satin Slip Gown',
+    price: 1200,
+    originalPrice: 4500,
+    condition: 'Like New',
+    category: "Women's Dresses",
+    tags: ['gown', 'satin', 'zara', 'blue', 'evening', 'formal'],
+    image: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=600&h=700&fit=crop',
+    sellerName: 'Riya T.',
+    brand: 'Zara',
+    size: 'S',
+    description: 'Midnight blue bias-cut satin slip gown with thin straps and side slit. Minimal and chic for evenings.',
+    views: 165,
+    likes: 72
+  },
+  {
+    title: 'H&M Emerald Green Maxi Evening Gown',
+    price: 900,
+    originalPrice: 2999,
+    condition: 'Good',
+    category: "Women's Dresses",
+    tags: ['gown', 'maxi', 'hm', 'green', 'evening', 'formal'],
+    image: 'https://images.unsplash.com/photo-1558171813-0c399994b5fd?w=600&h=700&fit=crop',
+    sellerName: 'Sneha P.',
+    brand: 'H&M',
+    size: 'M',
+    description: 'Floor-length emerald green chiffon gown with flutter sleeves and self-tie belt. Elegant for formal occasions.',
+    views: 128,
+    likes: 54
+  },
+  {
+    title: 'Mango Black Off-Shoulder Ruched Gown',
+    price: 2200,
+    originalPrice: 7500,
+    condition: 'Like New',
+    category: "Women's Dresses",
+    tags: ['gown', 'black', 'mango', 'off-shoulder', 'cocktail', 'evening'],
+    image: 'https://images.unsplash.com/photo-1496747611176-843222e1e57c?w=600&h=700&fit=crop',
+    sellerName: 'Divya M.',
+    brand: 'Mango',
+    size: 'XS',
+    description: 'Body-hugging ruched black gown with off-shoulder neckline and thigh-high slit. Statement cocktail look.',
+    views: 210,
+    likes: 96
+  },
+  {
+    title: 'And. by Anita Dongre Blush Pink Flowy Gown',
+    price: 3500,
+    originalPrice: 9800,
+    condition: 'Like New',
+    category: "Women's Dresses",
+    tags: ['gown', 'blush', 'pink', 'and', 'flowy', 'wedding-guest'],
+    image: 'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?w=600&h=700&fit=crop',
+    sellerName: 'Kavya L.',
+    brand: 'And.',
+    size: 'S',
+    description: 'Blush pink georgette flowy gown with flutter sleeves and floral embroidery at bodice. Worn once.',
+    views: 174,
+    likes: 79
+  },
+  {
+    title: 'Forever21 Red Halter Neck Maxi Gown',
+    price: 600,
+    originalPrice: 2200,
+    condition: 'Good',
+    category: "Women's Dresses",
+    tags: ['gown', 'red', 'forever21', 'halter', 'maxi', 'party'],
+    image: 'https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?w=600&h=700&fit=crop',
+    sellerName: 'Tara B.',
+    brand: 'Forever 21',
+    size: 'M',
+    description: 'Scarlet red halter maxi with adjustable neck tie and subtle ruching at waist. Great for parties.',
+    views: 103,
+    likes: 41
+  },
+  {
+    title: 'Vero Moda Rust Orange Wrap Maxi Gown',
+    price: 800,
+    originalPrice: 2799,
+    condition: 'Like New',
+    category: "Women's Dresses",
+    tags: ['gown', 'rust', 'orange', 'veromoda', 'wrap', 'boho'],
+    image: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=600&h=700&fit=crop',
+    sellerName: 'Ananya G.',
+    brand: 'Vero Moda',
+    size: 'S',
+    description: 'Rust orange wrap maxi with V-neckline, self-tie waist, and boho tiered skirt. Perfect for casual evenings.',
+    views: 118,
+    likes: 48
+  },
+  {
+    title: 'Only Lavender Tiered Ruffle Gown',
+    price: 950,
+    originalPrice: 3200,
+    condition: 'Good',
+    category: "Women's Dresses",
+    tags: ['gown', 'lavender', 'only', 'tiered', 'ruffle', 'wedding-guest'],
+    image: 'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=600&h=700&fit=crop',
+    sellerName: 'Simran D.',
+    brand: 'Only',
+    size: 'XS',
+    description: 'Soft lavender chiffon tiered gown with ruffle hem and smocked bodice. Dreamy wedding guest look.',
+    views: 145,
+    likes: 63
+  },
+
+  // ==========================================
+  // PART 2: Sarees (3 items)
+  // ==========================================
+  {
+    title: 'Banarasi Silk Saree in Deep Teal',
+    price: 4500,
+    originalPrice: 12000,
+    condition: 'Like New',
+    category: "Women's Traditional",
+    tags: ['saree', 'banarasi', 'silk', 'teal', 'traditional', 'wedding'],
+    image: 'https://images.unsplash.com/photo-1617627143233-69db79f9697f?w=600&h=700&fit=crop',
+    sellerName: 'Sunita B.',
+    brand: 'Banarasi Weaves',
+    size: 'Free Size',
+    description: 'Authentic handwoven Banarasi silk saree in deep teal with heavy gold zari border and intricate buta work.',
+    views: 188,
+    likes: 85
+  },
+  {
+    title: 'Chanderi Cotton Ivory Saree with Gold Border',
+    price: 2200,
+    originalPrice: 6500,
+    condition: 'Good',
+    category: "Women's Traditional",
+    tags: ['saree', 'chanderi', 'cotton', 'ivory', 'gold', 'festive'],
+    image: 'https://images.unsplash.com/photo-1583391733956-6c78276477e2?w=600&h=700&fit=crop',
+    sellerName: 'Rekha V.',
+    brand: 'Chanderi Silks',
+    size: 'Free Size',
+    description: 'Lightweight Chanderi cotton saree with subtle sheer quality, ivory body and bold gold tissue border.',
+    views: 143,
+    likes: 61
+  },
+  {
+    title: 'Georgette Pink Printed Saree',
+    price: 1100,
+    originalPrice: 3200,
+    condition: 'Like New',
+    category: "Women's Traditional",
+    tags: ['saree', 'georgette', 'pink', 'printed', 'casual', 'puja'],
+    image: 'https://images.unsplash.com/photo-1588965218882-8528fdb1c2a3?w=600&h=700&fit=crop',
+    sellerName: 'Lalita M.',
+    brand: 'Soch',
+    size: 'Free Size',
+    description: 'Floral digital-printed georgette saree in dusty pink with matching unstitched blouse piece included.',
+    views: 112,
+    likes: 47
+  },
+
+  // ==========================================
+  // PART 2: Dresses (3 items)
+  // ==========================================
+  {
+    title: 'Zara Floral Midi Dress in Cream',
+    price: 1100,
+    originalPrice: 3499,
+    condition: 'Like New',
+    category: "Women's Dresses",
+    tags: ['dress', 'floral', 'midi', 'zara', 'cream', 'summer'],
+    image: 'https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?w=600&h=700&fit=crop',
+    sellerName: 'Priya M.',
+    brand: 'Zara',
+    size: 'M',
+    description: 'Cream floral midi dress with puff sleeves and button-front bodice. Effortlessly feminine for summer.',
+    views: 156,
+    likes: 67
+  },
+  {
+    title: 'H&M Striped Shirt Dress',
+    price: 650,
+    originalPrice: 1999,
+    condition: 'Good',
+    category: "Women's Dresses",
+    tags: ['dress', 'striped', 'shirt-dress', 'hm', 'casual', 'everyday'],
+    image: 'https://images.unsplash.com/photo-1496747611176-843222e1e57c?w=600&h=700&fit=crop',
+    sellerName: 'Ria K.',
+    brand: 'H&M',
+    size: 'S',
+    description: 'Classic navy and white striped cotton shirt dress with button placket and tie belt. Relaxed everyday style.',
+    views: 94,
+    likes: 38
+  },
+  {
+    title: 'Mango Knit Ribbed Mini Dress',
+    price: 1800,
+    originalPrice: 5500,
+    condition: 'Like New',
+    category: "Women's Dresses",
+    tags: ['dress', 'knit', 'mini', 'mango', 'ribbed', 'going-out'],
+    image: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=600&h=700&fit=crop',
+    sellerName: 'Aisha T.',
+    brand: 'Mango',
+    size: 'XS',
+    description: 'Form-fitting ribbed knit mini dress in warm caramel with long sleeves and subtle V-neckline.',
+    views: 177,
+    likes: 82
+  },
+
+  // ==========================================
+  // PART 2: Knee-High Boots (3 items)
+  // ==========================================
+  {
+    title: 'Zara Black Knee High Block Heel Boots',
+    price: 2200,
+    originalPrice: 6999,
+    condition: 'Like New',
+    category: 'Footwear',
+    tags: ['boots', 'knee-high', 'black', 'zara', 'block-heel', 'winter'],
+    image: 'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=600&h=700&fit=crop',
+    sellerName: 'Sara K.',
+    brand: 'Zara',
+    size: '38',
+    description: 'Sleek black faux leather knee-high boots with stable 6cm block heel and side zip. Worn twice, minimal scuffing.',
+    views: 233,
+    likes: 107
+  },
+  {
+    title: 'H&M Brown Suede Knee High Boots',
+    price: 1400,
+    originalPrice: 3999,
+    condition: 'Good',
+    category: 'Footwear',
+    tags: ['boots', 'knee-high', 'brown', 'suede', 'hm', 'winter'],
+    image: 'https://images.unsplash.com/photo-1608256246200-53e635b5b65f?w=600&h=700&fit=crop',
+    sellerName: 'Nisha P.',
+    brand: 'H&M',
+    size: '37',
+    description: 'Cognac brown suede-look knee-high boots with flat heel and pull-on style. Light wear, no damage.',
+    views: 168,
+    likes: 73
+  },
+  {
+    title: 'Steve Madden Over-The-Knee Stretch Boots',
+    price: 3500,
+    originalPrice: 9500,
+    condition: 'Like New',
+    category: 'Footwear',
+    tags: ['boots', 'over-the-knee', 'steve-madden', 'stretch', 'black', 'evening'],
+    image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&h=700&fit=crop',
+    sellerName: 'Pooja R.',
+    brand: 'Steve Madden',
+    size: '39',
+    description: 'Black stretch fabric over-the-knee boots with 5cm heel and zip back. Barely worn, perfect condition.',
+    views: 204,
+    likes: 94
   }
 ];
 

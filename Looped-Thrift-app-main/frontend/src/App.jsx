@@ -3,7 +3,6 @@ import { useEffect } from 'react'
 import { AuthProvider } from './context/AuthContext'
 import { CartProvider } from './context/CartContext'
 import BottomNav from './components/BottomNav'
-import WhatsappWidget from './components/WhatsappWidget'
 
 // Pages
 import SplashPage      from './pages/SplashPage'
@@ -98,9 +97,8 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <CartProvider>
-          <div className="max-w-lg mx-auto min-h-screen relative">
+          <div className="w-full max-w-5xl mx-auto min-h-screen relative overflow-x-hidden">
             <AppContent />
-            <WhatsappWidget />
           </div>
         </CartProvider>
       </AuthProvider>

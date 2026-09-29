@@ -224,7 +224,7 @@ export default function DiscoverPage() {
         )}
 
         {/* Filter row */}
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+        <div className="flex flex-wrap gap-2 pb-1">
           <select
             value={category} onChange={e => setCategory(e.target.value)}
             className="text-xs border rounded-full px-3 py-1.5 focus:outline-none flex-shrink-0"
@@ -272,7 +272,7 @@ export default function DiscoverPage() {
         </div>
 
         {/* Popular Tags Pills */}
-        <div className="flex gap-1.5 overflow-x-auto pt-2 scrollbar-none">
+        <div className="flex flex-wrap gap-1.5 pt-2">
           {POPULAR_TAGS.map(t => (
             <button
               key={t}
@@ -301,7 +301,7 @@ export default function DiscoverPage() {
             <p className="text-xs mt-1" style={{ color: '#6b5560' }}>Try uploading a different photo or adjusting your filters</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="product-grid">
             {products.map(p => (
               <ProductCard key={p._id} product={p} />
             ))}

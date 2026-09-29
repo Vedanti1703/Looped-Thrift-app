@@ -180,7 +180,7 @@ export default function AuctionDetailPage() {
 
         {/* Gallery Thumbnails */}
         {imagesList.length > 1 && (
-          <div className="flex gap-2 p-3 bg-white/70 border-b overflow-x-auto scrollbar-none" style={{ borderColor: 'var(--pink-cotton)' }}>
+          <div className="flex flex-wrap gap-2 p-3 bg-white/70 border-b" style={{ borderColor: 'var(--pink-cotton)' }}>
             {imagesList.map((imgUrl, idx) => (
               <button
                 key={idx}

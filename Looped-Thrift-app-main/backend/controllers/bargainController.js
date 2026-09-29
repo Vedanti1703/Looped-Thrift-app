@@ -13,7 +13,11 @@ exports.createOffer = async (req, res) => {
       return res.status(404).json({ message: 'Product not found' });
     }
 
-    if (product.sellerId && product.sellerId.toString() === buyerId.toString()) {
+    if (!product.sellerId) {
+      return res.status(400).json({ message: 'This item does not have an active seller assigned and cannot receive bargain offers.' });
+    }
+
+    if (product.sellerId.toString() === buyerId.toString()) {
       return res.status(400).json({ message: 'You cannot make an offer on your own listing' });
     }
 

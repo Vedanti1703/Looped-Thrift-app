@@ -5,6 +5,7 @@ const rentalController = require('../controllers/rentalController');
 
 router.post('/estimate', rentalController.getRentEstimate);
 router.get('/feed', rentalController.getRentableFeed);
+router.get('/admin/seed', rentalController.seedRentalProducts); // dev only
 
 router.post('/list', auth, rentalController.listForRent);
 router.post('/request', auth, rentalController.requestRental);

@@ -323,7 +323,7 @@ export default function ChatPage() {
                     <div className="flex items-center gap-1 mb-1.5 px-1">
                       <span className="text-xs text-rose-500 font-bold">✨ Recommended for you</span>
                     </div>
-                    <div className="flex gap-2.5 overflow-x-auto pb-2 pt-0.5 scrollbar-none max-w-full">
+                    <div className="flex flex-wrap gap-2.5 pb-2 pt-0.5 max-w-full">
                       {msg.suggestedProducts.map(p => (
                         <ChatProductCard key={p._id || p} product={p} />
                       ))}
@@ -369,7 +369,7 @@ export default function ChatPage() {
           )}
 
           {/* Quick reply pills */}
-          <div className="flex gap-2 overflow-x-auto pb-2.5 scrollbar-none">
+          <div className="flex flex-wrap gap-2 pb-2.5">
             {QUICK_MESSAGES.map(q => (
               <button
                 key={q}

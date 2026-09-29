@@ -350,7 +350,7 @@ export default function ProfilePage() {
       </div>
 
       {/* Tabs Bar */}
-      <div className="flex bg-white border-b border-pink-100 overflow-x-auto no-scrollbar">
+      <div className="flex flex-wrap bg-white border-b border-pink-100">
         {TABS.map(t => (
           <button
             key={t}
@@ -828,7 +828,7 @@ export default function ProfilePage() {
                           <div className="grid grid-cols-2 gap-2 text-center text-[10px]">
                             <div>
                               <p className="font-semibold text-gray-600 mb-1">Before Rental</p>
-                              <div className="flex gap-1 overflow-x-auto">
+                              <div className="flex flex-wrap gap-1">
                                 {(rental.conditionImagesBefore || [product.image]).map((img, i) => (
                                   <img key={i} src={img} alt="Before" className="w-14 h-14 object-cover rounded-lg bg-white border border-gray-200" />
                                 ))}
@@ -837,7 +837,7 @@ export default function ProfilePage() {
 
                             <div>
                               <p className="font-semibold text-gray-600 mb-1">After Return</p>
-                              <div className="flex gap-1 overflow-x-auto">
+                              <div className="flex flex-wrap gap-1">
                                 {(rental.conditionImagesAfter || []).map((img, i) => (
                                   <img key={i} src={img} alt="After" className="w-14 h-14 object-cover rounded-lg bg-white border border-pink-200" />
                                 ))}
