@@ -22,7 +22,7 @@ exports.getRentEstimate = async (req, res) => {
     // Daily rent ~10% (within 8-15%)
     const rentPerDay = Math.max(250, Math.round((basePrice * 0.10) / 50) * 50);
     const priceLow = Math.max(200, Math.round((basePrice * RENTAL_CONFIG.DAILY_RATE_MIN_PERCENT) / 50) * 50);
-    const priceHigh = Math.round((basePrice * RENTAL_CONFIG.DAILY_RATE_MAX_PERCENT) / 50) * 50);
+    const priceHigh = Math.round((basePrice * RENTAL_CONFIG.DAILY_RATE_MAX_PERCENT) / 50) * 50;
 
     // Security deposit ~40% (within 30-50%)
     const suggestedDeposit = Math.max(1000, Math.round((basePrice * 0.40) / 100) * 100);
