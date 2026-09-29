@@ -46,20 +46,61 @@ async function placeBid(req, res) {
         const bidder = await User.findById(bidderId).select('name email');
         const bidderName = bidder?.name || bidder?.email?.split('@')[0] || 'Bidder';
 
-        // Optimistic locking — use findOneAndUpdate with version check
+        // Calculate all unique bidders including this new bidder
+        const existingBidderIds = (auction.bids || []).map(b => b.bidderId.toString());
+        const uniqueBidders = new Set([...existingBidderIds, bidderId.toString()]);
+        const newTotalBidders = uniqueBidders.size;
+
+        // Anti-snipe extension check: if placed within last 5 mins, extend by 2 mins and set status 'ending'
+        const nowMs = Date.now();
+        const currentEndMs = new Date(auction.endTime).getTime();
+        const timeLeft = currentEndMs - nowMs;
+        let newEndTime = auction.endTime;
+        let newStatus = auction.status;
+
+        if (timeLeft < 5 * 60 * 1000) {
+          newEndTime = new Date(nowMs + 2 * 60 * 1000);
+          newStatus = 'ending';
+        }
+
+        const newBidObj = {
+          bidderId,
+          bidderName,
+          amount,
+          timestamp: new Date(),
+          isWinning: true
+        };
+
         const currentVersion = auction.__v;
+
+        // Atomic pipeline update: map existing bids to isWinning=false and concat the new winning bid
         const updated = await Auction.findOneAndUpdate(
-          { _id: auctionId, __v: currentVersion }, // version must match
-          {
-            $set: {
-              currentPrice: amount,
-              'bids.$[].isWinning': false // clear all previous winning flags
-            },
-            $push: {
-              bids: { bidderId, bidderName, amount, timestamp: new Date(), isWinning: true }
-            },
-            $inc: { __v: 1 }
-          },
+          { _id: auctionId, __v: currentVersion },
+          [
+            {
+              $set: {
+                currentPrice: amount,
+                totalBidders: newTotalBidders,
+                endTime: newEndTime,
+                status: newStatus,
+                __v: { $add: [{ $ifNull: ['$$ROOT.__v', 0] }, 1] },
+                bids: {
+                  $concatArrays: [
+                    {
+                      $map: {
+                        input: { $ifNull: ['$$ROOT.bids', []] },
+                        as: 'b',
+                        in: {
+                          $mergeObjects: ['$$b', { isWinning: false }]
+                        }
+                      }
+                    },
+                    [newBidObj]
+                  ]
+                }
+              }
+            }
+          ],
           { new: true }
         );
 
@@ -67,18 +108,6 @@ async function placeBid(req, res) {
           // Version mismatch means another concurrent bid landed first
           return resolve({ error: 'Concurrent bid conflict — someone placed a bid just before you. Please try again.', status: 409 });
         }
-
-        // Distinct bidders calculation
-        const uniqueBidders = new Set(updated.bids.map(b => b.bidderId.toString()));
-        updated.totalBidders = uniqueBidders.size;
-
-        // If bid placed in last 5 minutes, extend auction by 2 minutes (anti-snipe mechanism)
-        const timeLeft = new Date(updated.endTime).getTime() - Date.now();
-        if (timeLeft < 5 * 60 * 1000) {
-          updated.endTime = new Date(Date.now() + 2 * 60 * 1000);
-          updated.status = 'ending';
-        }
-        await updated.save();
 
         resolve({ auction: updated, status: 200 });
       } catch (err) {
