@@ -8,7 +8,7 @@ import { uploadImage } from '../services/uploadService'
 const CATEGORIES = ['All','Women\'s Tops','Women\'s Bottoms','Women\'s Outerwear','Women\'s Traditional',
   'Men\'s Tops','Men\'s Outerwear','Men\'s Bottoms','Accessories','Footwear','Bags','Jewelry','Women\'s Sets']
 const CONDITIONS  = ['All','New with tags','Like New','Good','Fair','Well Loved']
-const POPULAR_TAGS = ['japan','winter','jaipur','wedding','streetwear','vintage','kawaii','minimalist','y2k','harajuku']
+const POPULAR_TAGS = ['ethnic','winter','summer','vacation','formal','japan','streetwear','vintage','y2k','wedding']
 
 export default function DiscoverPage() {
   const [searchParams] = useSearchParams()
