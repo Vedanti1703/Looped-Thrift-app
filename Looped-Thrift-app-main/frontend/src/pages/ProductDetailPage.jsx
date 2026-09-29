@@ -1,15 +1,20 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import BottomNav from '../components/BottomNav'
 import ProductCard from '../components/ProductCard'
 import Spinner from '../components/Spinner'
 import StarRating from '../components/StarRating'
 import ReviewCard from '../components/ReviewCard'
 import SaveToCollectionModal from '../components/SaveToCollectionModal'
+import BargainModal from '../components/BargainModal'
+import FitPredictor from '../components/FitPredictor'
+import SizeMeasurements from '../components/SizeMeasurements'
+import CarbonSavingsBadge from '../components/CarbonSavingsBadge'
 import { getProduct } from '../services/productService'
 import { getProductReviews, createReview, deleteReview } from '../services/reviewService'
 import { requestRental } from '../services/rentalService'
+import { getMyOffers } from '../services/bargainService'
 import { useAuth } from '../context/AuthContext'
+
 import { useCart } from '../context/CartContext'
 import { formatPrice, conditionColor, tagColor } from '../utils/helpers'
 import api from '../services/api'
@@ -26,6 +31,9 @@ export default function ProductDetailPage() {
   const [addedCart, setAddedCart]     = useState(false)
   const [cartLoading, setCartLoading] = useState(false)
   const [showSaveModal, setShowSaveModal] = useState(false)
+  const [showBargainModal, setShowBargainModal] = useState(false)
+  const [showSizeModal, setShowSizeModal] = useState(false)
+  const [activeOffer, setActiveOffer] = useState(null)
 
   // Rental state
   const [startDate, setStartDate]           = useState('')
@@ -46,7 +54,19 @@ export default function ProductDetailPage() {
     window.scrollTo(0, 0)
     fetchData()
     fetchReviews()
-  }, [id])
+    if (token) fetchUserOffer()
+  }, [id, token])
+
+  const fetchUserOffer = async () => {
+    try {
+      const offers = await getMyOffers(id)
+      const myOffer = offers.find(o => o.productId?._id === id || o.productId === id)
+      if (myOffer) setActiveOffer(myOffer)
+    } catch (err) {
+      console.warn('Could not load user offer', err)
+    }
+  }
+
 
   useEffect(() => {
     if (user && data) {
@@ -124,7 +144,6 @@ export default function ProductDetailPage() {
       await createReview(id, newRating, newComment)
       setNewComment('')
       setNewRating(5)
-      // Refresh reviews list and product details for updated rating count
       await fetchReviews()
       const updatedProduct = await getProduct(id)
       setData(updatedProduct)
@@ -173,7 +192,7 @@ export default function ProductDetailPage() {
   }
 
   if (loading) return (
-    <div className="min-h-screen bg-pink-50 flex items-center justify-center">
+    <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--cream)' }}>
       <Spinner size="lg" />
     </div>
   )
@@ -195,30 +214,37 @@ export default function ProductDetailPage() {
   const totalRentAmount = rentalDays * rentPerDay
 
   return (
-    <div className="min-h-screen bg-pink-50 pb-32">
+    <div className="min-h-screen pb-32" style={{ backgroundColor: 'var(--cream)' }}>
       {/* Back button header */}
-      <div className="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-pink-100 px-4 py-3 flex items-center gap-3">
-        <button onClick={() => navigate(-1)} className="text-gray-600 hover:text-pink-500 transition-colors">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <div
+        className="sticky top-0 z-40 border-b px-4 py-3 flex items-center gap-3"
+        style={{
+          backgroundColor: 'rgba(251, 244, 236, 0.92)',
+          backdropFilter: 'blur(12px)',
+          borderColor: 'var(--pink-cotton)'
+        }}
+      >
+        <button onClick={() => navigate(-1)} className="p-1 rounded-full hover:bg-pink-100 transition-colors">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--pink-mauve)" strokeWidth="2">
             <path d="m15 18-6-6 6-6"/>
           </svg>
         </button>
-        <span className="font-semibold text-gray-800 text-sm truncate flex-1">{product.title}</span>
+        <span className="font-semibold text-sm truncate flex-1" style={{ color: 'var(--pink-mauve)' }}>{product.title}</span>
 
-        {/* Action icons: Save to Collection + Like */}
+        {/* Action icons */}
         <div className="flex items-center gap-1">
           <button
             onClick={() => setShowSaveModal(true)}
             className="p-1.5 text-gray-500 hover:text-pink-500 transition-colors"
             title="Save to collection"
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--pink-mauve)" strokeWidth="2">
               <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
             </svg>
           </button>
           <button onClick={handleLike} className="p-1.5" title={liked ? 'Unlike' : 'Like'}>
             <svg width="22" height="22" viewBox="0 0 24 24" strokeWidth="2"
-              fill={liked ? '#ec4899' : 'none'} stroke={liked ? '#ec4899' : '#9ca3af'}>
+              fill={liked ? '#EC6FA7' : 'none'} stroke={liked ? '#EC6FA7' : 'var(--pink-rose)'}>
               <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
             </svg>
           </button>
@@ -226,7 +252,7 @@ export default function ProductDetailPage() {
       </div>
 
       {/* Main image */}
-      <div className="bg-white">
+      <div style={{ backgroundColor: 'var(--ivory)' }}>
         <img
           src={product.image}
           alt={product.title}
@@ -236,14 +262,20 @@ export default function ProductDetailPage() {
       </div>
 
       {/* Product info card */}
-      <div className="bg-white mx-0 px-5 pt-5 pb-6 border-b border-pink-100">
+      <div
+        className="mx-0 px-5 pt-5 pb-6 border-b"
+        style={{
+          backgroundColor: 'var(--ivory)',
+          borderColor: 'var(--pink-cotton)'
+        }}
+      >
         <div className="flex items-start justify-between gap-3 mb-2">
           <div className="flex-1">
-            <h1 className="font-bold text-gray-900 text-xl leading-snug">{product.title}</h1>
-            {/* Avg Rating summary near title/price */}
+            <h1 className="font-bold text-2xl leading-snug" style={{ fontFamily: "'Playfair Display', serif", color: 'var(--pink-mauve)' }}>{product.title}</h1>
+            {/* Avg Rating summary */}
             <div className="flex items-center gap-1.5 mt-1.5">
               <StarRating rating={product.avgRating || 0} size="sm" />
-              <span className="text-xs font-bold text-gray-800">
+              <span className="text-xs font-bold" style={{ color: 'var(--pink-mauve)' }}>
                 {product.avgRating ? Number(product.avgRating).toFixed(1) : 'No ratings'}
               </span>
               {product.reviewCount > 0 && (
@@ -254,9 +286,13 @@ export default function ProductDetailPage() {
             </div>
           </div>
           <div className="text-right flex-shrink-0">
-            <p className="text-pink-600 font-bold text-xl">{formatPrice(product.price)}</p>
+            <p className="font-bold text-2xl" style={{ color: 'var(--pink-hot)', fontFamily: "'Fredoka', sans-serif" }}>
+              {formatPrice(product.price)}
+            </p>
             {product.originalPrice && (
-              <p className="text-gray-400 text-xs line-through">{formatPrice(product.originalPrice)}</p>
+              <p className="text-gray-400 text-xs line-through" style={{ fontFamily: "'Fredoka', sans-serif" }}>
+                {formatPrice(product.originalPrice)}
+              </p>
             )}
           </div>
         </div>
@@ -266,19 +302,48 @@ export default function ProductDetailPage() {
           <span className={`tag-badge ${conditionColor[product.condition] || 'bg-gray-100 text-gray-600'}`}>
             {product.condition}
           </span>
-          <span className="tag-badge bg-purple-100 text-purple-700">{product.category}</span>
-          {product.size && <span className="tag-badge bg-blue-100 text-blue-700">Size: {product.size}</span>}
-          {product.brand && <span className="tag-badge bg-amber-100 text-amber-700">{product.brand}</span>}
+          <span className="tag-badge bg-[var(--pink-blush)] text-[var(--pink-mauve)]">{product.category}</span>
+          {product.size && <span className="tag-badge bg-[var(--blue-sky)] text-[#2d5a7b]">Size: {product.size}</span>}
+          {product.brand && <span className="tag-badge bg-[var(--paper)] text-[#8a6a3d]">{product.brand}</span>}
+          <CarbonSavingsBadge category={product.category} condition={product.condition} />
         </div>
 
+        {/* Active offer badge if buyer has one */}
+        {activeOffer && (
+          <div
+            onClick={() => setShowBargainModal(true)}
+            className="p-2.5 rounded-2xl border text-xs flex items-center justify-between cursor-pointer mb-3 shadow-2xs"
+            style={{
+              backgroundColor:
+                activeOffer.status === 'accepted' ? '#DCEEDC' :
+                activeOffer.status === 'countered' ? '#B7D2E6' :
+                activeOffer.status === 'declined' ? '#FBE9EF' : 'var(--pink-blush)',
+              borderColor: 'var(--pink-cotton)'
+            }}
+          >
+            <div className="flex items-center gap-1.5 font-bold" style={{ fontFamily: "'Fredoka', sans-serif" }}>
+              <span>🏷️</span>
+              <span>Offer Status: <span className="uppercase">{activeOffer.status}</span> ({formatPrice(activeOffer.offeredPrice)})</span>
+            </div>
+            <span className="text-[11px] underline" style={{ color: 'var(--pink-deep)' }}>View Offer ✦</span>
+          </div>
+        )}
+
+        {/* Fit Predictor Engine */}
+        <FitPredictor
+          productId={product._id || id}
+          onOpenMeasurements={() => setShowSizeModal(true)}
+        />
+
+
         {/* Seller info */}
-        <div className="flex items-center gap-3 py-3 border-t border-b border-pink-50 my-3">
-          <div className="w-9 h-9 rounded-full bg-pink-100 flex items-center justify-center">
-            <span className="text-pink-600 font-bold text-sm">{product.sellerName?.[0] || 'S'}</span>
+        <div className="flex items-center gap-3 py-3 border-t border-b border-pink-100 my-3">
+          <div className="w-9 h-9 rounded-full flex items-center justify-center border" style={{ backgroundColor: 'var(--pink-blush)', borderColor: 'var(--pink-cotton)' }}>
+            <span className="font-bold text-sm" style={{ color: 'var(--pink-deep)', fontFamily: "'Fredoka', sans-serif" }}>{product.sellerName?.[0] || 'S'}</span>
           </div>
           <div>
             <p className="text-xs text-gray-500">Seller</p>
-            <p className="text-sm font-semibold text-gray-800">{product.sellerName || 'Anonymous'}</p>
+            <p className="text-sm font-semibold" style={{ color: 'var(--pink-mauve)' }}>{product.sellerName || 'Anonymous'}</p>
           </div>
           <div className="ml-auto flex items-center gap-2 text-xs text-gray-400">
             <span>👁 {product.views || 0}</span>
@@ -296,19 +361,19 @@ export default function ProductDetailPage() {
         )}
 
         {product.description && (
-          <p className="text-sm text-gray-500 mt-3 leading-relaxed">{product.description}</p>
+          <p className="text-sm mt-3 leading-relaxed" style={{ color: 'var(--ink)' }}>{product.description}</p>
         )}
       </div>
 
       {/* Renting Section */}
       {isRentable && (
-        <div className="bg-white mx-0 px-5 py-5 border-b border-pink-100 mt-3 space-y-4">
+        <div className="mx-0 px-5 py-5 border-b mt-3 space-y-4" style={{ backgroundColor: 'var(--ivory)', borderColor: 'var(--pink-cotton)' }}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-2xl">👗</span>
               <div>
-                <h2 className="font-bold text-gray-900 text-lg leading-tight">Rent This Item</h2>
-                <p className="text-xs text-gray-400">Wear it for your next event without buying</p>
+                <h2 className="font-bold text-lg leading-tight" style={{ fontFamily: "'Playfair Display', serif", color: 'var(--pink-deep)' }}>Rent This Item ✦</h2>
+                <p className="text-xs text-gray-500">Wear it for your next event without buying</p>
               </div>
             </div>
             {product.rentPriceMatchScore > 0.85 && (
@@ -318,14 +383,14 @@ export default function ProductDetailPage() {
             )}
           </div>
 
-          <div className="bg-pink-50/60 rounded-2xl p-4 border border-pink-100 space-y-3">
+          <div className="rounded-2xl p-4 border space-y-3" style={{ backgroundColor: 'var(--cream)', borderColor: 'var(--pink-cotton)' }}>
             <div className="flex items-center justify-between text-xs pb-2 border-b border-pink-100">
               <span className="text-gray-600 font-medium">Daily Rental Rate</span>
-              <strong className="text-pink-600 font-bold text-base">₹{rentPerDay}/day</strong>
+              <strong className="font-bold text-base" style={{ color: 'var(--pink-hot)', fontFamily: "'Fredoka', sans-serif" }}>₹{rentPerDay}/day</strong>
             </div>
             <div className="flex items-center justify-between text-xs pb-2 border-b border-pink-100">
               <span className="text-gray-600 font-medium">Security Deposit (Refundable)</span>
-              <strong className="text-gray-800 font-semibold">{formatPrice(depositAmt)}</strong>
+              <strong className="font-semibold" style={{ color: 'var(--ink)', fontFamily: "'Fredoka', sans-serif" }}>{formatPrice(depositAmt)}</strong>
             </div>
 
             {rentalError && (
@@ -364,7 +429,7 @@ export default function ProductDetailPage() {
               <form onSubmit={handleRequestRental} className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[11px] font-bold text-gray-700 mb-1">Start Date</label>
+                    <label className="block text-[11px] font-bold mb-1" style={{ color: 'var(--pink-mauve)', fontFamily: "'Fredoka', sans-serif" }}>Start Date</label>
                     <input
                       type="date"
                       value={startDate}
@@ -375,7 +440,7 @@ export default function ProductDetailPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-bold text-gray-700 mb-1">End Date</label>
+                    <label className="block text-[11px] font-bold mb-1" style={{ color: 'var(--pink-mauve)', fontFamily: "'Fredoka', sans-serif" }}>End Date</label>
                     <input
                       type="date"
                       value={endDate}
@@ -388,16 +453,16 @@ export default function ProductDetailPage() {
                 </div>
 
                 {rentalDays > 0 && (
-                  <div className="bg-white rounded-xl p-3 border border-pink-100 space-y-1 text-xs">
+                  <div className="rounded-xl p-3 border space-y-1 text-xs" style={{ backgroundColor: 'var(--ivory)', borderColor: 'var(--pink-cotton)' }}>
                     <div className="flex justify-between text-gray-600">
                       <span>Rental Duration:</span>
-                      <strong className="text-gray-800">{rentalDays} {rentalDays === 1 ? 'day' : 'days'}</strong>
+                      <strong style={{ color: 'var(--ink)' }}>{rentalDays} {rentalDays === 1 ? 'day' : 'days'}</strong>
                     </div>
                     <div className="flex justify-between text-gray-600">
                       <span>Rent Total:</span>
-                      <span>₹{rentPerDay} × {rentalDays} = <strong>{formatPrice(totalRentAmount)}</strong></span>
+                      <span>₹{rentPerDay} × {rentalDays} = <strong style={{ color: 'var(--pink-deep)' }}>{formatPrice(totalRentAmount)}</strong></span>
                     </div>
-                    <div className="flex justify-between text-pink-600 font-bold pt-1 border-t border-gray-100 text-sm">
+                    <div className="flex justify-between font-bold pt-1 border-t border-pink-100 text-sm" style={{ color: 'var(--pink-hot)' }}>
                       <span>Total Due (incl. deposit):</span>
                       <span>{formatPrice(totalRentAmount + depositAmt)}</span>
                     </div>
@@ -407,9 +472,9 @@ export default function ProductDetailPage() {
                 <button
                   type="submit"
                   disabled={requestingRental || !startDate || !endDate}
-                  className="w-full bg-gradient-to-r from-pink-500 to-rose-500 text-white font-bold text-xs py-3 rounded-xl hover:from-pink-600 hover:to-rose-600 active:scale-98 transition-all flex items-center justify-center gap-2 shadow-xs"
+                  className="btn-primary w-full py-3 text-xs flex items-center justify-center gap-2 shadow-sm"
                 >
-                  {requestingRental ? <Spinner size="sm" /> : 'Request Rental'}
+                  {requestingRental ? <Spinner size="sm" /> : 'Request Rental ✦'}
                 </button>
               </form>
             )}
@@ -418,35 +483,35 @@ export default function ProductDetailPage() {
       )}
 
       {/* Reviews Section */}
-      <div className="bg-white mx-0 px-5 py-5 border-b border-pink-100 mt-3">
+      <div className="mx-0 px-5 py-5 border-b mt-3" style={{ backgroundColor: 'var(--ivory)', borderColor: 'var(--pink-cotton)' }}>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-bold text-gray-900 text-lg">Reviews & Ratings</h2>
+          <h2 className="font-bold text-lg" style={{ fontFamily: "'Playfair Display', serif", color: 'var(--pink-mauve)' }}>Reviews & Ratings ✦</h2>
           {product.avgRating > 0 && (
             <div className="flex items-center gap-1.5">
               <StarRating rating={product.avgRating} size="sm" />
-              <span className="text-xs font-bold text-gray-800">{Number(product.avgRating).toFixed(1)}</span>
+              <span className="text-xs font-bold" style={{ color: 'var(--pink-mauve)' }}>{Number(product.avgRating).toFixed(1)}</span>
             </div>
           )}
         </div>
 
-        {/* Review Form / Prompt / Seller check */}
+        {/* Review Form */}
         {isSeller ? (
-          <div className="bg-gray-50 rounded-2xl p-3 text-center border border-gray-100 mb-6">
+          <div className="rounded-2xl p-3 text-center border mb-6" style={{ backgroundColor: 'var(--cream)', borderColor: 'var(--pink-cotton)' }}>
             <p className="text-xs text-gray-400 italic">As the seller of this item, you cannot review it.</p>
           </div>
         ) : !token ? (
-          <div className="bg-pink-50/80 rounded-2xl p-4 text-center border border-pink-100 mb-6">
+          <div className="rounded-2xl p-4 text-center border mb-6" style={{ backgroundColor: 'var(--cream)', borderColor: 'var(--pink-cotton)' }}>
             <p className="text-xs text-gray-600 mb-2.5 font-medium">Log in to leave a review</p>
             <button
               onClick={() => navigate('/login')}
-              className="px-5 py-2 bg-pink-500 text-white rounded-xl text-xs font-semibold hover:bg-pink-600 transition-all inline-block shadow-xs"
+              className="btn-primary px-5 py-2 text-xs inline-block"
             >
               Log In
             </button>
           </div>
         ) : (
-          <form onSubmit={handleReviewSubmit} className="bg-pink-50/60 border border-pink-100 rounded-2xl p-4 mb-6 space-y-3">
-            <p className="text-xs font-bold text-gray-800">Write a Review</p>
+          <form onSubmit={handleReviewSubmit} className="border rounded-2xl p-4 mb-6 space-y-3" style={{ backgroundColor: 'var(--cream)', borderColor: 'var(--pink-cotton)' }}>
+            <p className="text-xs font-bold" style={{ color: 'var(--pink-mauve)', fontFamily: "'Fredoka', sans-serif" }}>Write a Review ✦</p>
             {reviewError && (
               <div className="text-xs text-rose-600 bg-rose-50 border border-rose-200 p-2.5 rounded-xl">
                 {reviewError}
@@ -468,7 +533,7 @@ export default function ProductDetailPage() {
               disabled={submittingReview || newRating === 0}
               className="btn-primary py-2.5 text-xs flex items-center justify-center gap-2"
             >
-              {submittingReview ? <Spinner size="sm" /> : 'Submit Review'}
+              {submittingReview ? <Spinner size="sm" /> : 'Submit Review ✦'}
             </button>
           </form>
         )}
@@ -479,9 +544,9 @@ export default function ProductDetailPage() {
             <Spinner size="md" />
           </div>
         ) : reviews.length === 0 ? (
-          <div className="text-center py-8 text-gray-400 bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
+          <div className="text-center py-8 rounded-2xl border border-dashed border-pink-200" style={{ backgroundColor: 'var(--cream)' }}>
             <p className="text-2xl mb-1">💬</p>
-            <p className="text-xs font-medium text-gray-600">No reviews yet — be the first!</p>
+            <p className="text-xs font-medium" style={{ color: 'var(--pink-mauve)' }}>No reviews yet — be the first!</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -498,32 +563,56 @@ export default function ProductDetailPage() {
       </div>
 
       {/* Action buttons */}
-      <div className="fixed bottom-16 left-0 right-0 bg-white border-t border-pink-100 px-4 py-3 flex gap-3 z-30">
+      <div
+        className="fixed bottom-0 left-0 right-0 border-t px-3 py-3 flex gap-2 z-30 max-w-lg mx-auto"
+        style={{
+          backgroundColor: 'rgba(251, 244, 236, 0.96)',
+          backdropFilter: 'blur(12px)',
+          borderColor: 'var(--pink-cotton)'
+        }}
+      >
         <button
           onClick={handleChat}
-          className="btn-outline flex-1 flex items-center justify-center gap-2 py-3"
+          className="btn-outline px-3 py-3 rounded-full flex items-center justify-center gap-1 text-xs"
+          title="Chat with seller"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
           </svg>
           Chat
         </button>
+
+        {!isSeller && (
+          <button
+            onClick={() => {
+              if (!token) return navigate('/login', { state: { from: `/product/${id}` } })
+              setShowBargainModal(true)
+            }}
+            className="btn-outline flex-1 py-3 text-xs flex items-center justify-center gap-1.5"
+            style={{ borderColor: 'var(--pink-hot)', color: 'var(--pink-deep)' }}
+          >
+            <span>🏷️</span> Make an Offer
+          </button>
+        )}
+
         <button
           onClick={handleAddToCart}
           disabled={cartLoading}
-          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl font-semibold text-sm transition-all
-            ${addedCart
-              ? 'bg-green-100 text-green-700 border-2 border-green-300'
-              : 'bg-pink-500 text-white hover:bg-pink-600 active:scale-95'}`}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-3 rounded-full font-semibold text-xs transition-all shadow-md ${
+            addedCart ? 'bg-[#DCEEDC] text-[#48593E] border border-green-300' : 'btn-primary'
+          }`}
+          style={addedCart ? { fontFamily: "'Fredoka', sans-serif" } : {}}
         >
-          {cartLoading ? <Spinner size="sm" /> : addedCart ? '✓ Added to Cart' : 'Add to Cart'}
+          {cartLoading ? <Spinner size="sm" /> : addedCart ? '✓ Added ✦' : 'Add to Cart ✦'}
         </button>
       </div>
 
       {/* Similar items */}
       {similar?.length > 0 && (
         <div className="px-4 mt-5">
-          <h3 className="font-bold text-gray-800 mb-3">Similar Items</h3>
+          <h3 className="font-bold mb-3 flex items-center gap-1.5" style={{ fontFamily: "'Playfair Display', serif", color: 'var(--pink-deep)' }}>
+            <span style={{ color: 'var(--gold)' }}>✦</span> Similar Items
+          </h3>
           <div className="scroll-row">
             {similar.map(p => <ProductCard key={p._id} product={p} size="sm" />)}
           </div>
@@ -533,7 +622,9 @@ export default function ProductDetailPage() {
       {/* Complete the look */}
       {completeTheLook?.length > 0 && (
         <div className="px-4 mt-5">
-          <h3 className="font-bold text-gray-800 mb-3">Complete the Look</h3>
+          <h3 className="font-bold mb-3 flex items-center gap-1.5" style={{ fontFamily: "'Playfair Display', serif", color: 'var(--pink-deep)' }}>
+            <span style={{ color: 'var(--gold)' }}>✦</span> Complete the Look
+          </h3>
           <div className="scroll-row">
             {completeTheLook.map(p => <ProductCard key={p._id} product={p} size="sm" />)}
           </div>
@@ -546,6 +637,31 @@ export default function ProductDetailPage() {
         isOpen={showSaveModal}
         onClose={() => setShowSaveModal(false)}
       />
+
+      {/* Bargain Negotiation Modal */}
+      <BargainModal
+        isOpen={showBargainModal}
+        onClose={() => setShowBargainModal(false)}
+        product={product}
+        existingOffer={activeOffer}
+        onOfferUpdated={(updated) => setActiveOffer(updated)}
+      />
+
+      {/* Size Measurements Modal */}
+      {showSizeModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="w-full max-w-md relative">
+            <button
+              onClick={() => setShowSizeModal(false)}
+              className="absolute top-4 right-4 z-10 w-8 h-8 rounded-full flex items-center justify-center text-gray-500 bg-pink-100"
+            >
+              ✕
+            </button>
+            <SizeMeasurements onSaved={() => setShowSizeModal(false)} />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
+

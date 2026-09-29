@@ -1,16 +1,19 @@
 // ─────────────────────────────────────────────────────────────
 //  UploadPage.jsx  —  full seller listing flow
 //  Phase 1: Multi-step photo upload with CV validation
-//  Phase 2: Listing details form
+//  Phase 2: Listing details form with Measurements & Anti-Fraud AI
 // ─────────────────────────────────────────────────────────────
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import PhotoUploadStep from '../components/PhotoUploadStep'
 import Spinner from '../components/Spinner'
 import PriceSuggestion from '../components/PriceSuggestion'
+import ItemMeasurementsInput from '../components/ItemMeasurementsInput'
+import ListingAnalysisResult from '../components/ListingAnalysisResult'
 import { createProduct } from '../services/productService'
 import { uploadMultipleImages } from '../services/uploadService'
 import { useAuth } from '../context/AuthContext'
+import api from '../services/api'
 
 const CONDITIONS = ['New with tags', 'Like New', 'Good', 'Fair', 'Well Loved']
 const CATEGORIES = [
@@ -40,7 +43,10 @@ export default function UploadPage() {
     condition: 'Like New', category: "Women's Tops",
     tags: '', brand: '', size: '',
   })
+  const [itemMeasurements, setItemMeasurements] = useState({})
   const [loading, setLoading] = useState(false)
+  const [analyzingListing, setAnalyzingListing] = useState(false)
+  const [analysisResult, setAnalysisResult] = useState(null)
   const [error,   setError]   = useState('')
 
   if (!token) return (
@@ -73,15 +79,46 @@ export default function UploadPage() {
     setPhase('details')
   }
 
+  // Pre-upload validation & fraud check
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!form.title || !form.price) return setError('Title and price are required')
     setError('')
+
+    // Run Fake Listing Analysis Check first
+    setAnalyzingListing(true)
+    try {
+      // Pick first preview URL or fallback
+      const previewImg = completedPhotos[1]?.previewUrl || `https://picsum.photos/seed/${encodeURIComponent(form.title)}/400/500`
+      const analysisRes = await api.post('/listing/analyse', {
+        brand: form.brand,
+        price: Number(form.price),
+        originalPrice: form.originalPrice ? Number(form.originalPrice) : undefined,
+        condition: form.condition,
+        category: form.category,
+        title: form.title,
+        description: form.description,
+        imageUrl: previewImg,
+        sellerId: user?._id || user?.id
+      })
+
+      setAnalysisResult(analysisRes.data)
+    } catch (anErr) {
+      console.warn('Listing analysis warning:', anErr)
+      // Fallback directly to upload if analysis service is unavailable
+      await performUpload()
+    } finally {
+      setAnalyzingListing(false)
+    }
+  }
+
+  // Final submission after analysis approval
+  const performUpload = async () => {
+    setAnalysisResult(null)
     setLoading(true)
+    setError('')
     try {
       // ── Step 1: Upload photos to Cloudinary ────────────────
-      // This sends the actual File objects to backend → Cloudinary
-      // Returns permanent URLs like https://res.cloudinary.com/...
       setError('Uploading photos…')
       let imageUrl     = `https://picsum.photos/seed/${encodeURIComponent(form.title)}/400/500`
       let allImageUrls = []
@@ -100,14 +137,15 @@ export default function UploadPage() {
       const userTags = form.tags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean)
       await createProduct({
         ...form,
-        price:         Number(form.price),
-        originalPrice: form.originalPrice ? Number(form.originalPrice) : undefined,
-        image:         imageUrl,        // permanent Cloudinary URL
-        images:        allImageUrls,    // all 4 photos
-        tags:          [...new Set(userTags)],
-        sellerId:      user?._id,
-        sellerName:    user?.name || user?.email,
-        hasModelShot:  !!completedPhotos[4],
+        price:            Number(form.price),
+        originalPrice:    form.originalPrice ? Number(form.originalPrice) : undefined,
+        image:            imageUrl,        // permanent Cloudinary URL
+        images:           allImageUrls,    // all 4 photos
+        tags:             [...new Set(userTags)],
+        sellerId:         user?._id,
+        sellerName:       user?.name || user?.email,
+        hasModelShot:     !!completedPhotos[4],
+        itemMeasurements: itemMeasurements
       })
       await refreshUser()
       setPhase('success')
@@ -303,10 +341,38 @@ export default function UploadPage() {
             value={form.description} onChange={set('description')} />
         </div>
 
-        <button type="submit" className="btn-primary flex items-center justify-center gap-2" disabled={loading}>
-          {loading ? <Spinner size="sm" /> : '🚀 Publish Listing'}
+        {/* ── Size Intelligence: Garment Measurements Input ── */}
+        <ItemMeasurementsInput
+          category={form.category}
+          measurements={itemMeasurements}
+          onChange={setItemMeasurements}
+        />
+
+        <button type="submit" className="btn-primary flex items-center justify-center gap-2" disabled={loading || analyzingListing}>
+          {analyzingListing ? (
+            <>
+              <Spinner size="sm" />
+              <span>Analyzing listing quality & safety…</span>
+            </>
+          ) : loading ? (
+            <>
+              <Spinner size="sm" />
+              <span>Publishing…</span>
+            </>
+          ) : (
+            '🚀 Review & Publish Listing'
+          )}
         </button>
       </form>
+
+      {/* ── Fake Listing Detection Verdict Modal ── */}
+      {analysisResult && (
+        <ListingAnalysisResult
+          analysis={analysisResult}
+          onProceed={performUpload}
+          onFixIssues={() => setAnalysisResult(null)}
+        />
+      )}
     </div>
   )
 }

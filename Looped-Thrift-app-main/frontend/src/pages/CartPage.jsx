@@ -9,7 +9,6 @@ import {
   verifyPayment,
   recordPaymentFailure
 } from '../services/paymentService'
-import Spinner from '../components/Spinner'
 import CheckoutStepper from '../components/checkout/CheckoutStepper'
 import CheckoutAddressStep from '../components/checkout/CheckoutAddressStep'
 import CheckoutReviewStep from '../components/checkout/CheckoutReviewStep'
@@ -85,20 +84,17 @@ export default function CartPage() {
     setProcessing(true)
 
     try {
-      // 1. Load Razorpay Checkout SDK script
       const scriptLoaded = await loadRazorpayScript()
       if (!scriptLoaded) {
         throw new Error('Razorpay Payment Gateway failed to load. Please check your network.')
       }
 
-      // 2. Initialize Order on Backend (server recalculates price from database)
       const orderData = await createPaymentOrder(addressForm)
 
       if (!orderData || !orderData.success) {
         throw new Error(orderData?.message || 'Failed to initialize payment order.')
       }
 
-      // 3. Configure and Launch Razorpay Checkout Modal
       const options = {
         key: orderData.keyId,
         amount: orderData.amount,
@@ -145,7 +141,7 @@ export default function CartPage() {
           deliveryAddress: addressForm.address.trim()
         },
         theme: {
-          color: '#ec4899'
+          color: '#EC6FA7'
         },
         modal: {
           ondismiss: async function () {
@@ -193,16 +189,26 @@ export default function CartPage() {
   }
 
   return (
-    <div className="min-h-screen bg-pink-50 pb-28">
+    <div className="min-h-screen pb-28" style={{ backgroundColor: 'var(--cream)' }}>
       {/* Header */}
-      <div className="sticky top-0 z-40 bg-white border-b border-pink-100 px-4 py-4 flex items-center gap-3">
-        <button onClick={() => navigate(-1)} className="p-1 hover:bg-pink-50 rounded-full transition">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <div
+        className="sticky top-0 z-40 border-b px-4 py-4 flex items-center gap-3"
+        style={{
+          backgroundColor: 'rgba(251, 244, 236, 0.92)',
+          backdropFilter: 'blur(12px)',
+          borderColor: 'var(--pink-cotton)'
+        }}
+      >
+        <button onClick={() => navigate(-1)} className="p-1 hover:bg-pink-100 rounded-full transition">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--pink-mauve)" strokeWidth="2">
             <path d="m15 18-6-6 6-6"/>
           </svg>
         </button>
-        <h1 className="font-bold text-gray-900 text-lg flex-1">My Cart</h1>
-        <span className="text-xs bg-pink-100 text-pink-700 font-semibold px-2.5 py-1 rounded-full">
+        <h1 className="font-bold text-lg flex-1" style={{ fontFamily: "'Playfair Display', serif", color: 'var(--pink-mauve)' }}>My Cart ✦</h1>
+        <span
+          className="text-xs font-semibold px-2.5 py-1 rounded-full"
+          style={{ backgroundColor: 'var(--pink-blush)', color: 'var(--pink-deep)', fontFamily: "'Fredoka', sans-serif" }}
+        >
           {cartItems.length} item{cartItems.length !== 1 ? 's' : ''}
         </span>
       </div>
@@ -217,27 +223,36 @@ export default function CartPage() {
       {cartItems.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 text-center px-6">
           <div className="text-5xl mb-4">🛍️</div>
-          <p className="font-semibold text-gray-700 mb-1">Your cart is empty</p>
-          <p className="text-gray-400 text-sm mb-6">Browse unique secondhand pieces and add items you love</p>
+          <p className="font-bold text-xl mb-1" style={{ fontFamily: "'Playfair Display', serif", color: 'var(--pink-mauve)' }}>Your cart is empty ✦</p>
+          <p className="text-sm mb-6" style={{ color: '#6b5560' }}>Browse unique secondhand pieces and add items you love</p>
           <button onClick={() => navigate('/discover')} className="btn-primary max-w-xs">
-            Start Shopping
+            Start Shopping ✦
           </button>
         </div>
       ) : (
         <div className="px-4 pt-4 space-y-3 max-w-lg mx-auto">
           {/* Cart Item Cards */}
           {cartItems.map((item, i) => (
-            <div key={item.productId || i} className="card flex gap-3 p-3 items-center">
+            <div
+              key={item.productId || i}
+              className="card flex gap-3 p-3 items-center"
+              style={{
+                backgroundColor: 'var(--ivory)',
+                borderColor: 'var(--pink-cotton)',
+                borderRadius: '20px'
+              }}
+            >
               <img
                 src={item.image}
                 alt={item.title}
-                className="w-20 h-20 rounded-xl object-cover bg-pink-50 flex-shrink-0"
+                className="w-20 h-20 rounded-xl object-cover flex-shrink-0"
+                style={{ backgroundColor: 'var(--pink-blush)' }}
                 onError={e => { e.target.src = 'https://picsum.photos/seed/cart/200/200' }}
               />
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-gray-800 text-sm leading-snug mb-0.5 truncate">{item.title}</p>
-                <p className="text-xs text-gray-400 mb-1.5">{item.condition || 'Pre-loved'}</p>
-                <p className="text-pink-600 font-bold text-base">{formatPrice(item.price)}</p>
+                <p className="font-semibold text-sm leading-snug mb-0.5 truncate" style={{ color: 'var(--ink)' }}>{item.title}</p>
+                <p className="text-xs mb-1.5" style={{ color: '#6b5560' }}>{item.condition || 'Pre-loved'}</p>
+                <p className="font-bold text-base" style={{ color: 'var(--pink-hot)', fontFamily: "'Fredoka', sans-serif" }}>{formatPrice(item.price)}</p>
               </div>
               <button
                 onClick={() => removeFromCart(item.productId)}
@@ -253,28 +268,41 @@ export default function CartPage() {
           ))}
 
           {/* Order summary */}
-          <div className="bg-white rounded-2xl border border-pink-100 p-4 mt-4 space-y-3">
-            <h3 className="font-bold text-gray-800 text-sm">Order Summary</h3>
+          <div
+            className="rounded-2xl border p-4 mt-4 space-y-3"
+            style={{
+              backgroundColor: 'var(--ivory)',
+              borderColor: 'var(--pink-cotton)',
+              boxShadow: 'var(--shadow)'
+            }}
+          >
+            <h3 className="font-bold text-base" style={{ fontFamily: "'Playfair Display', serif", color: 'var(--pink-mauve)' }}>Order Summary ✦</h3>
             <div className="space-y-2 text-xs">
-              <div className="flex justify-between text-gray-600">
+              <div className="flex justify-between" style={{ color: 'var(--ink)' }}>
                 <span>Subtotal ({cartItems.length} items)</span>
-                <span>{formatPrice(total)}</span>
+                <span className="font-semibold">{formatPrice(total)}</span>
               </div>
-              <div className="flex justify-between text-gray-600">
+              <div className="flex justify-between" style={{ color: 'var(--ink)' }}>
                 <span>Delivery Shipping</span>
-                <span className="text-emerald-600 font-semibold">Free 🎉</span>
+                <span className="font-semibold" style={{ color: 'var(--green-forest)' }}>Free 🎉</span>
               </div>
-              <div className="flex justify-between font-bold text-gray-900 border-t border-pink-100 pt-2.5 mt-2 text-sm">
-                <span>Total Amount</span>
-                <span className="text-pink-600 text-lg font-extrabold">{formatPrice(total)}</span>
+              <div className="flex justify-between font-bold border-t pt-2.5 mt-2 text-sm" style={{ borderColor: 'var(--pink-cotton)' }}>
+                <span style={{ color: 'var(--pink-mauve)' }}>Total Amount</span>
+                <span className="text-xl font-extrabold" style={{ color: 'var(--pink-hot)', fontFamily: "'Fredoka', sans-serif" }}>{formatPrice(total)}</span>
               </div>
             </div>
           </div>
 
           {/* Sustainability note */}
-          <div className="bg-emerald-50 rounded-2xl p-3 flex items-start gap-2 border border-emerald-100">
+          <div
+            className="rounded-2xl p-3.5 flex items-start gap-2.5 border"
+            style={{
+              backgroundColor: '#EEF4E9',
+              borderColor: 'var(--green-sage)'
+            }}
+          >
             <span className="text-lg">♻️</span>
-            <p className="text-xs text-emerald-800 leading-relaxed">
+            <p className="text-xs leading-relaxed" style={{ color: 'var(--green-forest)' }}>
               By buying thrift on Looped, you're giving clothes a second life and preventing fashion landfill waste!
             </p>
           </div>
@@ -282,27 +310,34 @@ export default function CartPage() {
           {/* Proceed Button */}
           <button
             onClick={handleOpenCheckout}
-            className="btn-primary mt-2 flex items-center justify-center gap-2 shadow-sm py-3.5 text-base"
+            className="btn-primary w-full mt-2 flex items-center justify-center gap-2 shadow-sm py-3.5 text-base"
           >
-            <span>💳</span> Proceed to Checkout • {formatPrice(total)}
+            <span>💳</span> Proceed to Checkout ✦ {formatPrice(total)}
           </button>
         </div>
       )}
 
-      {/* ── Amazon / Meesho Style Multi-Step Checkout Modal ── */}
+      {/* Checkout Modal */}
       {showCheckoutModal && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl max-h-[92vh] flex flex-col shadow-2xl border border-pink-100 overflow-hidden">
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div
+            className="w-full max-w-lg rounded-t-3xl sm:rounded-3xl max-h-[92vh] flex flex-col shadow-2xl border overflow-hidden"
+            style={{
+              backgroundColor: 'var(--ivory)',
+              borderColor: 'var(--pink-cotton)'
+            }}
+          >
             {/* Modal Header */}
-            <div className="px-5 py-3.5 border-b border-pink-100 flex items-center justify-between bg-white">
+            <div className="px-5 py-3.5 border-b flex items-center justify-between" style={{ backgroundColor: 'var(--ivory)', borderColor: 'var(--pink-cotton)' }}>
               <div className="flex items-center gap-2">
-                <span className="text-lg font-bold text-gray-900">Checkout</span>
-                <span className="text-xs text-gray-400">• Looped Thrift</span>
+                <span className="text-lg font-bold" style={{ fontFamily: "'Playfair Display', serif", color: 'var(--pink-mauve)' }}>Checkout ✦</span>
+                <span className="text-xs" style={{ color: '#6b5560' }}>• Looped Thrift</span>
               </div>
               <button
                 onClick={() => !processing && !verifying && setShowCheckoutModal(false)}
                 disabled={processing || verifying}
-                className="w-8 h-8 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-500 hover:text-gray-800 disabled:opacity-50"
+                className="w-8 h-8 rounded-full border flex items-center justify-center text-gray-500 hover:text-gray-800 disabled:opacity-50"
+                style={{ backgroundColor: 'var(--pink-blush)', borderColor: 'var(--pink-cotton)' }}
               >
                 ✕
               </button>

@@ -28,41 +28,87 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 to-rose-50 flex flex-col items-center justify-center px-6">
+    <div
+      className="min-h-screen flex flex-col items-center justify-center px-6 relative overflow-hidden"
+      style={{
+        background: 'radial-gradient(circle at 50% 20%, #fff 0%, #FBDCE8 55%, #F5A9C9 100%)'
+      }}
+    >
+      {/* 3 decorative ✦ stars in gold and pink */}
+      <span className="absolute top-12 left-10 text-2xl select-none animate-pulse" style={{ color: 'var(--gold)' }}>✦</span>
+      <span className="absolute top-28 right-12 text-3xl select-none" style={{ color: 'var(--pink-hot)', filter: 'drop-shadow(0 2px 8px rgba(236,111,167,0.4))' }}>✦</span>
+      <span className="absolute bottom-16 left-12 text-xl select-none" style={{ color: 'var(--pink-deep)' }}>✦</span>
+
       {/* Brand */}
-      <div className="text-center mb-8">
-        <h1 className="font-display text-5xl text-pink-500 italic mb-2">Looped</h1>
-        <p className="text-gray-500 text-sm">Fashion thrift. Sustainably yours.</p>
+      <div className="text-center mb-6 z-10">
+        <h1
+          className="text-6xl mb-1 select-none"
+          style={{ fontFamily: "'Parisienne', cursive", color: 'var(--pink-deep)' }}
+        >
+          Looped
+        </h1>
+        <p className="text-sm font-medium" style={{ color: 'var(--pink-mauve)' }}>
+          your closet, always in rotation ✦
+        </p>
       </div>
 
-      <div className="w-full max-w-sm bg-white rounded-3xl shadow-sm border border-pink-100 p-8">
-        <h2 className="text-xl font-bold text-gray-800 mb-6">Welcome back</h2>
+      <div
+        className="w-full max-w-sm rounded-3xl p-8 z-10 shadow-lg relative border"
+        style={{
+          backgroundColor: 'rgba(255, 253, 249, 0.9)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          borderColor: 'var(--pink-cotton)',
+          boxShadow: 'var(--shadow)'
+        }}
+      >
+        <h2 className="text-2xl font-bold mb-6 text-center" style={{ fontFamily: "'Playfair Display', serif", color: 'var(--pink-mauve)' }}>
+          Welcome back
+        </h2>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3 mb-4">
+          <div className="bg-rose-50 border border-rose-200 text-rose-600 text-xs rounded-xl px-4 py-3 mb-4">
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="text-sm font-medium text-gray-700 block mb-1">Email</label>
-            <input className="input" type="email" placeholder="you@example.com"
-              value={email} onChange={e => setEmail(e.target.value)} required />
+            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--pink-mauve)', fontFamily: "'Fredoka', sans-serif" }}>
+              Email
+            </label>
+            <input
+              className="input"
+              type="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              required
+            />
           </div>
           <div>
-            <label className="text-sm font-medium text-gray-700 block mb-1">Password</label>
-            <input className="input" type="password" placeholder="••••••••"
-              value={password} onChange={e => setPassword(e.target.value)} required />
+            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--pink-mauve)', fontFamily: "'Fredoka', sans-serif" }}>
+              Password
+            </label>
+            <input
+              className="input"
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              required
+            />
           </div>
-          <button type="submit" className="btn-primary flex items-center justify-center gap-2" disabled={loading}>
-            {loading ? <Spinner size="sm" /> : 'Sign In'}
+          <button type="submit" className="btn-primary w-full flex items-center justify-center gap-2 mt-2" disabled={loading}>
+            {loading ? <Spinner size="sm" /> : 'Sign In ✦'}
           </button>
         </form>
 
-        <p className="text-center text-sm text-gray-500 mt-6">
+        <p className="text-center text-sm mt-6" style={{ color: 'var(--ink)' }}>
           Don't have an account?{' '}
-          <Link to="/signup" className="text-pink-500 font-semibold hover:underline">Sign up</Link>
+          <Link to="/signup" className="font-semibold hover:underline" style={{ color: 'var(--pink-hot)', fontFamily: "'Fredoka', sans-serif" }}>
+            Sign up
+          </Link>
         </p>
       </div>
     </div>

@@ -2,24 +2,22 @@
 export const formatPrice = (price) =>
   new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(price)
 
-// Condition color map
+// Condition color map adhering to Coquette Style Guide:
+// Condition "Like New": background var(--blue-sky), color #2d5a7b
+// Condition "New with tags": background #DCEEDC, color var(--green-forest)
+// Condition "Good": background var(--pink-blush), color var(--pink-mauve)
+// Condition "Fair": background var(--paper), color #8a6a3d
+// Condition "Well Loved": background var(--pink-cotton), color var(--pink-deep)
 export const conditionColor = {
-  'New with tags': 'bg-green-100 text-green-700',
-  'Like New':      'bg-blue-100 text-blue-700',
-  'Good':          'bg-yellow-100 text-yellow-700',
-  'Fair':          'bg-orange-100 text-orange-700',
-  'Well Loved':    'bg-red-100 text-red-700',
+  'New with tags': 'condition-nwt',
+  'Like New':      'condition-like-new',
+  'Good':          'condition-good',
+  'Fair':          'condition-fair',
+  'Well Loved':    'condition-well-loved',
 }
 
-// Tag color — cycles through a palette
-const TAG_COLORS = [
-  'bg-pink-100 text-pink-700',
-  'bg-purple-100 text-purple-700',
-  'bg-indigo-100 text-indigo-700',
-  'bg-rose-100 text-rose-700',
-  'bg-fuchsia-100 text-fuchsia-700',
-]
-export const tagColor = (tag) => TAG_COLORS[tag.charCodeAt(0) % TAG_COLORS.length]
+// Tag color — chips use var(--pink-blush), color var(--pink-deep), Fredoka font
+export const tagColor = () => 'bg-[var(--pink-blush)] text-[var(--pink-deep)] font-fredoka'
 
 // Truncate text
 export const truncate = (str, n = 40) => str.length > n ? str.slice(0, n) + '…' : str
@@ -43,4 +41,3 @@ export const formatRelativeTime = (dateStr) => {
   const diffInYears = Math.floor(diffInDays / 365)
   return `${diffInYears}y ago`
 }
-

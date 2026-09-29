@@ -2,49 +2,189 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --pink-blush: #FBDCE8;
+  --pink-cotton: #F6C6DC;
+  --pink-rose: #F5A9C9;
+  --pink-hot: #EC6FA7;
+  --pink-deep: #C94E82;
+  --pink-mauve: #8F3F63;
+  --cream: #FBF4EC;
+  --ivory: #FFFDF9;
+  --paper: #F3E9DD;
+  --green-sage: #93AA85;
+  --green-forest: #48593E;
+  --blue-sky: #B7D2E6;
+  --gold: #D8B589;
+  --ink: #3B2A32;
+  --shadow: 0 12px 30px -12px rgba(140,60,95,0.35);
+}
+
 @layer base {
-  * { box-sizing: border-box; }
+  * {
+    box-sizing: border-box;
+  }
   body {
-    font-family: 'Plus Jakarta Sans', sans-serif;
-    /* background: #fdf2f8; */
-    background: #ffffff;
-    color: #1a1a1a;
+    font-family: 'Quicksand', sans-serif;
+    background-color: var(--cream);
+    color: var(--ink);
     -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Playfair Display', serif;
+    color: var(--pink-mauve);
+  }
+
+  p, span, div, input, textarea, label {
+    font-family: 'Quicksand', sans-serif;
+  }
+
+  button, .btn, .badge {
+    font-family: 'Fredoka', sans-serif;
   }
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-pink-500 text-white font-semibold py-3 px-6 rounded-2xl
-           hover:bg-pink-600 active:scale-95 transition-all duration-150 w-full;
+    background-color: var(--pink-hot) !important;
+    color: #ffffff !important;
+    font-family: 'Fredoka', sans-serif !important;
+    font-weight: 600 !important;
+    padding: 0.75rem 1.5rem !important;
+    border-radius: 999px !important;
+    box-shadow: 0 8px 20px -6px rgba(236,111,167,0.6) !important;
+    transition: all 0.15s ease-in-out !important;
+    border: none !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
   }
+  .btn-primary:hover {
+    filter: brightness(1.05);
+    transform: translateY(-1px);
+  }
+  .btn-primary:active {
+    transform: scale(0.96);
+  }
+
   .btn-outline {
-    @apply border-2 border-pink-400 text-pink-500 font-semibold py-3 px-6 rounded-2xl
-           hover:bg-pink-50 active:scale-95 transition-all duration-150 w-full;
+    background-color: transparent !important;
+    border: 1.5px solid var(--pink-hot) !important;
+    color: var(--pink-deep) !important;
+    font-family: 'Fredoka', sans-serif !important;
+    font-weight: 600 !important;
+    padding: 0.75rem 1.5rem !important;
+    border-radius: 999px !important;
+    transition: all 0.15s ease-in-out !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
   }
+  .btn-outline:hover {
+    background-color: var(--pink-blush) !important;
+  }
+  .btn-outline:active {
+    transform: scale(0.96);
+  }
+
   .card {
-    @apply bg-white rounded-2xl shadow-sm border border-pink-100 overflow-hidden;
+    background-color: var(--ivory) !important;
+    border: 1px solid var(--pink-cotton) !important;
+    border-radius: 20px !important;
+    box-shadow: var(--shadow) !important;
+    overflow: hidden;
   }
+
   .input {
-    @apply w-full border border-pink-200 rounded-xl px-4 py-3 text-sm
-           focus:outline-none focus:ring-2 focus:ring-pink-300 bg-white
-           placeholder-gray-400 transition;
+    width: 100%;
+    background-color: var(--ivory) !important;
+    border: 1px solid var(--pink-cotton) !important;
+    border-radius: 14px !important;
+    padding: 0.75rem 1rem !important;
+    font-size: 0.875rem !important;
+    color: var(--ink) !important;
+    font-family: 'Quicksand', sans-serif !important;
+    transition: all 0.2s ease !important;
   }
+  .input:focus {
+    outline: none !important;
+    border-color: var(--pink-hot) !important;
+    box-shadow: 0 0 0 3px rgba(246, 198, 220, 0.5) !important;
+  }
+
   .tag-badge {
-    @apply text-xs font-medium px-2 py-0.5 rounded-full;
+    font-family: 'Fredoka', sans-serif !important;
+    font-size: 0.75rem !important;
+    font-weight: 500 !important;
+    padding: 0.25rem 0.6rem !important;
+    border-radius: 999px !important;
+    background-color: var(--pink-blush);
+    color: var(--pink-deep);
   }
+}
+
+/* Conditions */
+.condition-like-new {
+  background-color: var(--blue-sky) !important;
+  color: #2d5a7b !important;
+}
+.condition-nwt {
+  background-color: #DCEEDC !important;
+  color: var(--green-forest) !important;
+}
+.condition-good {
+  background-color: var(--pink-blush) !important;
+  color: var(--pink-mauve) !important;
+}
+.condition-fair {
+  background-color: var(--paper) !important;
+  color: #8a6a3d !important;
+}
+.condition-well-loved {
+  background-color: var(--pink-cotton) !important;
+  color: var(--pink-deep) !important;
+}
+
+/* Specific utilities */
+.font-parisienne {
+  font-family: 'Parisienne', cursive !important;
+}
+.font-playfair {
+  font-family: 'Playfair Display', serif !important;
+}
+.font-fredoka {
+  font-family: 'Fredoka', sans-serif !important;
+}
+.font-quicksand {
+  font-family: 'Quicksand', sans-serif !important;
 }
 
 /* Swipe card animations */
 .swipe-card {
   transition: transform 0.15s ease, opacity 0.15s ease;
   will-change: transform;
+  border-radius: 24px;
 }
 .swipe-left  { transform: translateX(-120%) rotate(-20deg); opacity: 0; }
 .swipe-right { transform: translateX(120%)  rotate(20deg);  opacity: 0; }
 
 /* Bottom nav safe area */
-.bottom-nav { padding-bottom: env(safe-area-inset-bottom); }
+.bottom-nav {
+  padding-bottom: env(safe-area-inset-bottom);
+  background-color: rgba(251, 244, 236, 0.96) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border-top: 1px solid var(--pink-cotton) !important;
+}
+
+/* Header styling */
+header.coquette-header, .site-header {
+  background-color: rgba(251, 244, 236, 0.92) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border-bottom: 1px solid var(--pink-cotton) !important;
+}
 
 /* Horizontal scroll row */
 .scroll-row {
@@ -62,8 +202,8 @@
   100% { background-position: 400px 0; }
 }
 .skeleton {
-  background: linear-gradient(90deg, #fce7f3 25%, #fdf2f8 50%, #fce7f3 75%);
-  background-size: 800px 100%;
-  animation: shimmer 1.4s infinite;
-  border-radius: 12px;
+  background: linear-gradient(90deg, var(--pink-blush) 25%, var(--cream) 50%, var(--pink-blush) 75%) !important;
+  background-size: 800px 100% !important;
+  animation: shimmer 1.4s infinite !important;
+  border-radius: 14px !important;
 }

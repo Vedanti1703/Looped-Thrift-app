@@ -132,9 +132,18 @@ const orderSchema = new mongoose.Schema({
   refundInitiatedAt: { type: Date },
   payoutReleasedAt: { type: Date },
 
+  // Carbon footprint impact savings
+  carbonSavings: {
+    co2SavedKg: { type: Number, default: 0 },
+    waterSavedLitres: { type: Number, default: 0 },
+    equivalentKmNotDriven: { type: Number, default: 0 },
+    treeDaysEquivalent: { type: Number, default: 0 }
+  },
+
   // Audit timeline events
   timeline: [timelineEventSchema]
 }, { timestamps: true });
+
 
 // Pre-save hook to ensure status and orderStatus stay in sync
 orderSchema.pre('save', function (next) {

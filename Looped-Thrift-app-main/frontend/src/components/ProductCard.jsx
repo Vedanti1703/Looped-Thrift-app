@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import SaveToCollectionModal from './SaveToCollectionModal'
+import CarbonSavingsBadge from './CarbonSavingsBadge'
 import { formatPrice, conditionColor, tagColor, truncate } from '../utils/helpers'
 
 export default function ProductCard({ product, size = 'md' }) {
@@ -61,10 +62,13 @@ export default function ProductCard({ product, size = 'md' }) {
               <span className="text-gray-400 text-xs line-through">{formatPrice(product.originalPrice)}</span>
             )}
           </div>
-          {/* Condition badge */}
-          <span className={`tag-badge ${conditionColor[product.condition] || 'bg-gray-100 text-gray-600'}`}>
-            {product.condition}
-          </span>
+          {/* Condition badge & Carbon badge */}
+          <div className="flex items-center gap-1.5 flex-wrap mb-1">
+            <span className={`tag-badge ${conditionColor[product.condition] || 'bg-gray-100 text-gray-600'}`}>
+              {product.condition}
+            </span>
+            <CarbonSavingsBadge category={product.category} condition={product.condition} />
+          </div>
           {/* Top tags */}
           {!isSmall && product.tags?.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-2">

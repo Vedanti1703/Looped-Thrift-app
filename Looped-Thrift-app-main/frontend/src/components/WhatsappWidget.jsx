@@ -143,7 +143,7 @@ export default function WhatsappWidget() {
     setShowBadge(false)
   }
 
-  if (location.pathname === '/chat') return null
+  if (location.pathname === '/chat' || location.pathname === '/splash') return null
 
   return (
     <div className="fixed bottom-20 right-4 z-50 max-w-[calc(100vw-32px)]">

@@ -1,6 +1,6 @@
 const dns = require('dns')
 dns.setDefaultResultOrder('ipv4first')
-dns.setServers(['8.8.8.8', '8.8.4.4'])
+dns.setServers(['1.1.1.1', '1.0.0.1', '8.8.8.8', '8.8.4.4'])
 
 const express = require('express')
 const cors = require('cors')
@@ -32,12 +32,58 @@ app.use('/collections', require('./routes/collections'))
 app.use('/protection', require('./routes/orderProtection'))
 app.use('/escrow', require('./routes/escrow'))
 app.use('/style-me', require('./routes/styleMe'))
+app.use('/bargain', require('./routes/bargain'))
+app.use('/auction', require('./routes/auction'))
+app.use('/listing', require('./routes/listing'))
+app.use('/size', require('./routes/size'))
 app.use("/", require("./routes/webhook"));
 
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/looped'
 mongoose.connect(MONGO_URI)
-  .then(() => console.log('✅ MongoDB connected'))
+  .then(() => {
+    console.log('✅ MongoDB connected')
+
+    // Start background schedulers
+    // 1. Bargain offer expiration (every hour)
+    const { expireOldBargains } = require('./controllers/bargainController')
+    setInterval(() => {
+      expireOldBargains()
+    }, 60 * 60 * 1000)
+
+    // 2. Live Auction state machine transitions (every 60 seconds)
+    const { settleAuction } = require('./controllers/auctionController')
+    const Auction = require('./models/Auction')
+    setInterval(async () => {
+      try {
+        const now = new Date()
+
+        // Activate upcoming auctions whose start time has arrived
+        await Auction.updateMany(
+          { status: 'upcoming', startTime: { $lte: now } },
+          { $set: { status: 'live' } }
+        )
+
+        // Mark auctions ending soon (within next 5 minutes)
+        await Auction.updateMany(
+          { status: 'live', endTime: { $lte: new Date(now.getTime() + 5 * 60 * 1000) } },
+          { $set: { status: 'ending' } }
+        )
+
+        // Settle closed auctions that have ended
+        const toSettle = await Auction.find({
+          status: { $in: ['live', 'ending'] },
+          endTime: { $lte: now }
+        })
+        for (const auction of toSettle) {
+          await settleAuction(auction)
+        }
+      } catch (schErr) {
+        console.error('Auction scheduler error:', schErr)
+      }
+    }, 60 * 1000)
+  })
   .catch(err => console.log('❌ MongoDB error:', err))
 
 const PORT = process.env.PORT || 5000
 app.listen(PORT, () => console.log(`🚀 Looped server running on port ${PORT}`))
+

@@ -30,6 +30,16 @@ const productSchema = new mongoose.Schema({
   conditionImages: [{ type: String }],
   conditionNotes: { type: String, default: '' },
   embedding: { type: [Number], default: undefined },
+  itemMeasurements: {
+    chest: Number,
+    waist: Number,
+    hips: Number,
+    length: Number,
+    shoulder: Number,
+    inseam: Number,
+    footLength: Number
+  }
 }, { timestamps: true });
+
 
 module.exports = mongoose.model('Product', productSchema);

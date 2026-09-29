@@ -15,6 +15,14 @@ const userSchema = new mongoose.Schema({
   likedTags: [{ type: String }], // aggregated tags from liked items for recommendations
   uploadedItems: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Product' }],
   soldItems: { type: Number, default: 0 },
+  sustainabilityStats: {
+    totalCo2SavedKg:       { type: Number, default: 0 },
+    totalWaterSavedLitres: { type: Number, default: 0 },
+    totalItemsCirculated:  { type: Number, default: 0 },
+    sustainabilityScore:   { type: Number, default: 0 },  // 0-100
+    tier: { type: String, default: 'Seedling' } // Seedling → Sprout → Leaf → Tree → Forest Guardian
+  }
 }, { timestamps: true });
+
 
 module.exports = mongoose.model('User', userSchema);

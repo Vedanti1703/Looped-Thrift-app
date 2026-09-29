@@ -7,10 +7,13 @@ import StarRating from '../components/StarRating'
 import RentalStatusBadge from '../components/RentalStatusBadge'
 import ListForRentModal from '../components/ListForRentModal'
 import ConditionPhotoUpload from '../components/ConditionPhotoUpload'
+import SustainabilityReport from '../components/SustainabilityReport'
+import SizeMeasurements from '../components/SizeMeasurements'
 import { useAuth } from '../context/AuthContext'
 import { formatPrice, formatRelativeTime, truncate } from '../utils/helpers'
 import { getSellerDashboard } from '../services/sellerService'
 import { getCollections, getCollection, createCollection, removeItemFromCollection, deleteCollection } from '../services/collectionService'
+import { getMyOffers, respondToOffer } from '../services/bargainService'
 import {
   getMyRentals,
   getMyRentalListings,
@@ -19,7 +22,7 @@ import {
   raiseDispute,
 } from '../services/rentalService'
 
-const TABS = ['Liked', 'Listed', 'Collections', 'My Rentals', 'Rental Listings', 'Dashboard']
+const TABS = ['Liked', 'Listed', 'My Offers', 'My Impact', 'Size Profile', 'Collections', 'My Rentals', 'Rental Listings', 'Dashboard']
 
 export default function ProfilePage() {
   const navigate = useNavigate()
@@ -62,6 +65,13 @@ export default function ProfilePage() {
   const [disputeText, setDisputeText]                   = useState('')
   const [submittingDispute, setSubmittingDispute]       = useState(false)
 
+  // My Offers state (Bargains)
+  const [myOffers, setMyOffers]               = useState([])
+  const [offersLoading, setOffersLoading]     = useState(false)
+  const [offersError, setOffersError]         = useState(null)
+  const [counterInput, setCounterInput]       = useState({})
+  const [respondingOfferId, setRespondingOfferId] = useState(null)
+
   const uploadedItems = user?.uploadedItems || []
   const likedItems    = user?.likedItems    || []
 
@@ -75,8 +85,36 @@ export default function ProfilePage() {
       fetchRentals()
     } else if (tab === 'Rental Listings') {
       fetchSellerRentalListings()
+    } else if (tab === 'My Offers') {
+      fetchOffers()
     }
   }, [tab, user])
+
+  const fetchOffers = async () => {
+    setOffersLoading(true)
+    setOffersError(null)
+    try {
+      const res = await getMyOffers()
+      setMyOffers(res || [])
+    } catch {
+      setOffersError('Could not load offers')
+    } finally {
+      setOffersLoading(false)
+    }
+  }
+
+  const handleOfferResponse = async (bargainId, action) => {
+    setRespondingOfferId(bargainId)
+    try {
+      const price = counterInput[bargainId] ? Number(counterInput[bargainId]) : undefined
+      await respondToOffer(bargainId, action, price)
+      fetchOffers()
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update offer')
+    } finally {
+      setRespondingOfferId(null)
+    }
+  }
 
   const fetchDashboard = async () => {
     setDashboardLoading(true)
@@ -368,6 +406,161 @@ export default function ProfilePage() {
                   </div>
                 ))}
               </div>
+        )}
+
+        {/* My Offers Tab (Bargains) */}
+        {tab === 'My Offers' && (
+          <div className="space-y-4">
+            <h3 className="font-bold text-gray-800 text-base">Price Negotiation Offers</h3>
+
+            {offersLoading ? (
+              <div className="py-12 flex justify-center"><Spinner size="lg" /></div>
+            ) : offersError ? (
+              <div className="bg-rose-50 text-rose-600 text-xs p-4 rounded-2xl border border-rose-100 text-center">
+                {offersError}
+              </div>
+            ) : myOffers.length === 0 ? (
+              <EmptyState
+                icon="🏷️"
+                text="No active bargain offers"
+                sub="Make price offers directly on product detail pages to negotiate deals!"
+                action={() => navigate('/')}
+                actionText="Explore Products"
+              />
+            ) : (
+              <div className="space-y-3">
+                {myOffers.map(offer => {
+                  const product = offer.productId || {}
+                  const isSeller = String(offer.sellerId) === String(user?._id || user?.id)
+                  const isBuyer = String(offer.buyerId) === String(user?._id || user?.id)
+
+                  // Status badge color coding: yellow=pending, green=accepted, blue=countered, red=declined/expired
+                  const statusColors = {
+                    pending: 'bg-amber-100 text-amber-800 border-amber-200',
+                    accepted: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+                    countered: 'bg-sky-100 text-sky-800 border-sky-200',
+                    declined: 'bg-rose-100 text-rose-800 border-rose-200',
+                    expired: 'bg-gray-100 text-gray-600 border-gray-200'
+                  }
+
+                  return (
+                    <div key={offer._id} className="bg-white rounded-2xl border border-pink-100 p-4 space-y-3 shadow-xs">
+                      <div className="flex items-start gap-3">
+                        <img
+                          src={product.image || `https://picsum.photos/seed/${offer._id}/200`}
+                          alt={product.title || 'Product'}
+                          className="w-16 h-16 rounded-xl object-cover bg-pink-50"
+                          onError={e => { e.target.src = `https://picsum.photos/seed/${offer._id}/200` }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <p className="font-bold text-gray-900 text-sm truncate">{product.title || 'Product Item'}</p>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase ${statusColors[offer.status] || 'bg-gray-100'}`}>
+                              {offer.status}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className="text-gray-500">Original: {formatPrice(offer.originalPrice)}</span>
+                            <span className="font-bold text-pink-600">Offered: {formatPrice(offer.offeredPrice)}</span>
+                          </div>
+
+                          {offer.counterPrice && (
+                            <p className="text-xs font-bold text-sky-700 mt-0.5">
+                              Counter Price: {formatPrice(offer.counterPrice)}
+                            </p>
+                          )}
+
+                          <p className="text-[11px] text-gray-400 mt-1">
+                            {isSeller ? `From buyer: ${offer.buyerName || 'Buyer'}` : `To seller: ${offer.sellerName || 'Seller'}`}
+                          </p>
+
+                          {offer.message && (
+                            <p className="text-xs text-gray-600 italic bg-pink-50/50 p-2 rounded-xl mt-1.5 border border-pink-50">
+                              "{offer.message}"
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Seller Action Controls (when pending) */}
+                      {isSeller && offer.status === 'pending' && (
+                        <div className="space-y-2 pt-2 border-t border-pink-100">
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleOfferResponse(offer._id, 'accept')}
+                              disabled={respondingOfferId === offer._id}
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex-1 py-2 rounded-xl transition-colors"
+                            >
+                              ✓ Accept ({formatPrice(offer.offeredPrice)})
+                            </button>
+                            <button
+                              onClick={() => handleOfferResponse(offer._id, 'decline')}
+                              disabled={respondingOfferId === offer._id}
+                              className="bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold px-3 py-2 rounded-xl transition-colors"
+                            >
+                              Decline
+                            </button>
+                          </div>
+
+                          <div className="flex gap-2 pt-1">
+                            <input
+                              type="number"
+                              placeholder="Counter Price (₹)"
+                              value={counterInput[offer._id] || ''}
+                              onChange={e => setCounterInput({ ...counterInput, [offer._id]: e.target.value })}
+                              className="input text-xs py-1.5 flex-1"
+                            />
+                            <button
+                              onClick={() => handleOfferResponse(offer._id, 'counter')}
+                              disabled={respondingOfferId === offer._id || !counterInput[offer._id]}
+                              className="bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition-colors"
+                            >
+                              Counter Offer
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Buyer Action Controls (when countered by seller) */}
+                      {isBuyer && offer.status === 'countered' && (
+                        <div className="flex gap-2 pt-2 border-t border-pink-100">
+                          <button
+                            onClick={() => handleOfferResponse(offer._id, 'accept')}
+                            disabled={respondingOfferId === offer._id}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex-1 py-2 rounded-xl transition-colors"
+                          >
+                            ✓ Accept Counter ({formatPrice(offer.counterPrice)})
+                          </button>
+                          <button
+                            onClick={() => handleOfferResponse(offer._id, 'decline')}
+                            disabled={respondingOfferId === offer._id}
+                            className="bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold px-4 py-2 rounded-xl transition-colors"
+                          >
+                            Decline
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* My Impact Tab (Wardrobe Carbon Footprint) */}
+        {tab === 'My Impact' && (
+          <div className="space-y-4">
+            <SustainabilityReport user={user} />
+          </div>
+        )}
+
+        {/* Size Profile Tab (Size Intelligence) */}
+        {tab === 'Size Profile' && (
+          <div className="space-y-4">
+            <SizeMeasurements onSaved={() => alert('Measurements profile saved successfully! ✦')} />
+          </div>
         )}
 
         {/* Collections Tab */}

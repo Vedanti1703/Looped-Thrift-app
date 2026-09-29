@@ -28,7 +28,6 @@ export default function DiscoverPage() {
   const [uploadingImg, setUploadingImg]     = useState(false)
   const fileInputRef                        = useRef(null)
 
-  // Fetch when imageUrl, search, searchMode, or filters change
   useEffect(() => {
     const timer = setTimeout(() => {
       fetchProducts()
@@ -96,7 +95,7 @@ export default function DiscoverPage() {
     setTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag])
 
   return (
-    <div className="min-h-screen bg-pink-50 pb-24 font-sans">
+    <div className="min-h-screen pb-24" style={{ backgroundColor: 'var(--cream)' }}>
       {/* Hidden File Input */}
       <input
         type="file"
@@ -107,28 +106,44 @@ export default function DiscoverPage() {
       />
 
       {/* Fixed top area */}
-      <div className="sticky top-0 z-40 bg-white border-b border-pink-100 px-4 pt-4 pb-3 shadow-2xs">
+      <div
+        className="sticky top-0 z-40 px-4 pt-4 pb-3 shadow-2xs border-b"
+        style={{
+          backgroundColor: 'rgba(251, 244, 236, 0.94)',
+          backdropFilter: 'blur(12px)',
+          borderColor: 'var(--pink-cotton)'
+        }}
+      >
         {/* Mode Selector */}
         <div className="flex gap-2 mb-2">
           <button
             onClick={() => { setSearchMode('natural'); if (imageUrl) navigate('/discover'); }}
-            className={`flex-1 py-1.5 px-3 rounded-full text-xs font-bold transition-all flex items-center justify-center gap-1
-              ${searchMode === 'natural' && !imageUrl
-                ? 'bg-gradient-to-r from-pink-500 to-rose-500 text-white shadow-xs'
-                : 'bg-pink-50 text-gray-600 hover:bg-pink-100'}`}
+            className={`flex-1 py-1.5 px-3 rounded-full text-xs font-bold transition-all flex items-center justify-center gap-1 ${
+              searchMode === 'natural' && !imageUrl ? 'shadow-xs text-white' : 'hover:bg-pink-100'
+            }`}
+            style={{
+              backgroundColor: searchMode === 'natural' && !imageUrl ? 'var(--pink-hot)' : 'var(--pink-blush)',
+              color: searchMode === 'natural' && !imageUrl ? '#fff' : 'var(--pink-mauve)',
+              fontFamily: "'Fredoka', sans-serif"
+            }}
           >
-            <span>✨ AI Search</span>
+            <span>✦ AI Search</span>
           </button>
 
           <button
             onClick={() => fileInputRef.current?.click()}
-            className={`flex-1 py-1.5 px-3 rounded-full text-xs font-bold transition-all flex items-center justify-center gap-1
-              ${imageUrl
-                ? 'bg-rose-500 text-white shadow-xs'
-                : 'bg-pink-50 text-rose-600 hover:bg-pink-100 border border-rose-200'}`}
+            className={`flex-1 py-1.5 px-3 rounded-full text-xs font-bold transition-all flex items-center justify-center gap-1 ${
+              imageUrl ? 'shadow-xs text-white' : 'hover:bg-pink-100'
+            }`}
+            style={{
+              backgroundColor: imageUrl ? 'var(--pink-deep)' : 'var(--pink-blush)',
+              color: imageUrl ? '#fff' : 'var(--pink-deep)',
+              border: '1px solid var(--pink-cotton)',
+              fontFamily: "'Fredoka', sans-serif"
+            }}
           >
             {uploadingImg ? (
-              <div className="w-3.5 h-3.5 border-2 border-rose-500 border-t-transparent rounded-full animate-spin" />
+              <div className="w-3.5 h-3.5 border-2 border-pink-500 border-t-transparent rounded-full animate-spin" />
             ) : (
               <span>📷 Visual Search</span>
             )}
@@ -136,10 +151,14 @@ export default function DiscoverPage() {
 
           <button
             onClick={() => { setSearchMode('keyword'); if (imageUrl) navigate('/discover'); }}
-            className={`flex-1 py-1.5 px-3 rounded-full text-xs font-bold transition-all flex items-center justify-center gap-1
-              ${searchMode === 'keyword' && !imageUrl
-                ? 'bg-pink-500 text-white shadow-xs'
-                : 'bg-pink-50 text-gray-600 hover:bg-pink-100'}`}
+            className={`flex-1 py-1.5 px-3 rounded-full text-xs font-bold transition-all flex items-center justify-center gap-1 ${
+              searchMode === 'keyword' && !imageUrl ? 'shadow-xs text-white' : 'hover:bg-pink-100'
+            }`}
+            style={{
+              backgroundColor: searchMode === 'keyword' && !imageUrl ? 'var(--pink-hot)' : 'var(--pink-blush)',
+              color: searchMode === 'keyword' && !imageUrl ? '#fff' : 'var(--pink-mauve)',
+              fontFamily: "'Fredoka', sans-serif"
+            }}
           >
             <span>🔍 Keyword</span>
           </button>
@@ -147,22 +166,26 @@ export default function DiscoverPage() {
 
         {/* Search bar */}
         <div className="relative mb-3 flex items-center">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-pink-400 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
           </svg>
 
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full bg-pink-50 border border-pink-200 rounded-full pl-9 pr-9 py-2.5 text-sm
-                       focus:outline-none focus:ring-2 focus:ring-pink-300"
+            className="w-full border rounded-full pl-9 pr-9 py-2 text-sm focus:outline-none transition"
+            style={{
+              backgroundColor: 'var(--ivory)',
+              borderColor: 'var(--pink-cotton)',
+              color: 'var(--ink)'
+            }}
             placeholder={searchMode === 'natural' ? "Try: 'cute clothes for a Japan trip'..." : "Search by title, tag…"}
           />
 
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-rose-500 hover:text-rose-600 text-base"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-pink-500 hover:text-pink-600 text-base"
             title="Upload photo to search"
           >
             📷
@@ -171,17 +194,29 @@ export default function DiscoverPage() {
 
         {/* Visual Search Active Banner */}
         {imageUrl && (
-          <div className="bg-gradient-to-r from-rose-50 to-pink-50 border border-rose-200 rounded-2xl p-3 mb-2 flex items-center justify-between shadow-2xs">
+          <div
+            className="border rounded-2xl p-3 mb-2 flex items-center justify-between shadow-xs"
+            style={{
+              backgroundColor: 'var(--ivory)',
+              borderColor: 'var(--pink-cotton)'
+            }}
+          >
             <div className="flex items-center gap-2.5 min-w-0">
-              <img src={imageUrl} className="w-10 h-10 rounded-xl object-cover border border-rose-300 flex-shrink-0" alt="Target" />
+              <img src={imageUrl} className="w-10 h-10 rounded-xl object-cover border flex-shrink-0" style={{ borderColor: 'var(--pink-cotton)' }} alt="Target" />
               <div className="min-w-0">
-                <p className="text-[10px] text-rose-600 font-bold uppercase tracking-wider">📷 Visual Search Results</p>
-                <p className="text-xs font-semibold text-gray-800 truncate">{visualDescription ? `"${visualDescription}"` : 'Analyzing photo...'}</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--pink-hot)', fontFamily: "'Fredoka', sans-serif" }}>📷 Visual Search Results</p>
+                <p className="text-xs font-semibold truncate" style={{ color: 'var(--ink)' }}>{visualDescription ? `"${visualDescription}"` : 'Analyzing photo...'}</p>
               </div>
             </div>
             <button
               onClick={() => navigate('/discover')}
-              className="text-xs bg-white text-rose-600 border border-rose-200 hover:bg-rose-100 font-bold px-3 py-1 rounded-full flex-shrink-0 shadow-2xs ml-2"
+              className="text-xs border font-bold px-3 py-1 rounded-full flex-shrink-0 ml-2"
+              style={{
+                backgroundColor: 'var(--pink-blush)',
+                borderColor: 'var(--pink-cotton)',
+                color: 'var(--pink-deep)',
+                fontFamily: "'Fredoka', sans-serif"
+              }}
             >
               Clear
             </button>
@@ -192,25 +227,47 @@ export default function DiscoverPage() {
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
           <select
             value={category} onChange={e => setCategory(e.target.value)}
-            className="text-xs border border-pink-200 rounded-full px-3 py-1.5 bg-white focus:outline-none flex-shrink-0"
+            className="text-xs border rounded-full px-3 py-1.5 focus:outline-none flex-shrink-0"
+            style={{
+              backgroundColor: 'var(--ivory)',
+              borderColor: 'var(--pink-cotton)',
+              color: 'var(--ink)',
+              fontFamily: "'Fredoka', sans-serif"
+            }}
           >
             {CATEGORIES.map(c => <option key={c}>{c}</option>)}
           </select>
           <select
             value={condition} onChange={e => setCondition(e.target.value)}
-            className="text-xs border border-pink-200 rounded-full px-3 py-1.5 bg-white focus:outline-none flex-shrink-0"
+            className="text-xs border rounded-full px-3 py-1.5 focus:outline-none flex-shrink-0"
+            style={{
+              backgroundColor: 'var(--ivory)',
+              borderColor: 'var(--pink-cotton)',
+              color: 'var(--ink)',
+              fontFamily: "'Fredoka', sans-serif"
+            }}
           >
             {CONDITIONS.map(c => <option key={c}>{c}</option>)}
           </select>
           <input
             type="number" placeholder="Min ₹" value={minPrice}
             onChange={e => setMinPrice(e.target.value)}
-            className="text-xs border border-pink-200 rounded-full px-3 py-1.5 bg-white w-20 focus:outline-none flex-shrink-0"
+            className="text-xs border rounded-full px-3 py-1.5 w-20 focus:outline-none flex-shrink-0"
+            style={{
+              backgroundColor: 'var(--ivory)',
+              borderColor: 'var(--pink-cotton)',
+              color: 'var(--ink)'
+            }}
           />
           <input
             type="number" placeholder="Max ₹" value={maxPrice}
             onChange={e => setMaxPrice(e.target.value)}
-            className="text-xs border border-pink-200 rounded-full px-3 py-1.5 bg-white w-20 focus:outline-none flex-shrink-0"
+            className="text-xs border rounded-full px-3 py-1.5 w-20 focus:outline-none flex-shrink-0"
+            style={{
+              backgroundColor: 'var(--ivory)',
+              borderColor: 'var(--pink-cotton)',
+              color: 'var(--ink)'
+            }}
           />
         </div>
 
@@ -220,10 +277,12 @@ export default function DiscoverPage() {
             <button
               key={t}
               onClick={() => toggleTag(t)}
-              className={`text-[11px] font-semibold px-2.5 py-1 rounded-full flex-shrink-0 transition-colors
-                ${selectedTags.includes(t)
-                  ? 'bg-pink-500 text-white'
-                  : 'bg-white text-gray-600 border border-pink-200 hover:bg-pink-50'}`}
+              className="text-[11px] font-semibold px-2.5 py-1 rounded-full flex-shrink-0 transition-colors"
+              style={{
+                backgroundColor: selectedTags.includes(t) ? 'var(--pink-hot)' : 'var(--pink-blush)',
+                color: selectedTags.includes(t) ? '#fff' : 'var(--pink-deep)',
+                fontFamily: "'Fredoka', sans-serif"
+              }}
             >
               #{t}
             </button>
@@ -238,8 +297,8 @@ export default function DiscoverPage() {
         ) : products.length === 0 ? (
           <div className="text-center py-16">
             <p className="text-4xl mb-2">🔍</p>
-            <p className="font-semibold text-gray-700">No items found</p>
-            <p className="text-gray-400 text-xs mt-1">Try uploading a different photo or adjusting your filters</p>
+            <p className="font-semibold" style={{ fontFamily: "'Playfair Display', serif", color: 'var(--pink-mauve)' }}>No items found</p>
+            <p className="text-xs mt-1" style={{ color: '#6b5560' }}>Try uploading a different photo or adjusting your filters</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3">

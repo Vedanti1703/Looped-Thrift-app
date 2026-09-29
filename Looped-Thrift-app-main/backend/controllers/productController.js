@@ -2,6 +2,7 @@ const Product = require('../models/Product');
 const User = require('../models/User');
 const Order = require('../models/Order');
 const Rental = require('../models/Rental');
+const Auction = require('../models/Auction');
 const { getEmbedding } = require('../utils/embeddings');
 
 // GET /products — supports tag filtering & recommendations
@@ -93,7 +94,7 @@ exports.searchVisual = async (req, res) => {
 // POST /products — seller uploads item
 exports.createProduct = async (req, res) => {
   try {
-    const { title, price, condition, category, tags, image, description, brand, size, sellerId, sellerName } = req.body;
+    const { title, price, originalPrice, condition, category, tags, image, images, description, brand, size, sellerId, sellerName, itemMeasurements } = req.body;
     const parsedTags = typeof tags === 'string' ? tags.split(',').map(t => t.trim().toLowerCase()) : tags;
 
     // Generate embedding for newly created product (non-blocking fallback on failure)
@@ -116,11 +117,21 @@ exports.createProduct = async (req, res) => {
     }
 
     const product = await Product.create({
-      title, price: Number(price), condition, category,
+      title,
+      price: Number(price),
+      originalPrice: originalPrice ? Number(originalPrice) : undefined,
+      condition,
+      category,
       tags: parsedTags,
       image: image || `https://picsum.photos/seed/${Date.now()}/400/500`,
-      description, brand, size, sellerId, sellerName,
-      embedding
+      images: images || [],
+      description,
+      brand,
+      size,
+      sellerId,
+      sellerName,
+      embedding,
+      itemMeasurements: itemMeasurements || {}
     });
 
     // Track on user profile
@@ -143,31 +154,28 @@ exports.seedProducts = async (req, res) => {
     await Order.deleteMany({});
     await Rental.deleteMany({});
 
-    let assistant = await User.findOne({ email: 'assistant@looped.app' });
-    if (!assistant) {
-      assistant = await User.create({
-        email: 'assistant@looped.app',
-        password: '$2a$10$NotRealPasswordUsedForLoopedAIAssistantToken12345',
-        name: 'Looped AI',
-        avatar: '🤖',
-        isVerified: true
-      });
-    }
-
-    assistant.phone = '+1234567890';
-    await assistant.save();
-
     // Phones to seed orders and rentals for
-    const userPhones = ['+919372760976', '919372760976', '9372760976', '+1234567890'];
+    const userPhones = ['+919372760976', '919372760976', '9372760976'];
     await User.deleteMany({
       $or: [
-        { phone: { $in: userPhones } },
-        { email: { $in: userPhones.map(p => `testuser_${p.replace('+', 'plus')}@looped.app`) } }
+        { phone: { $in: [...userPhones, '+1234567890'] } },
+        { email: { $in: [...userPhones.map(p => `testuser_${p.replace('+', 'plus')}@looped.app`), 'assistant@looped.app'] } }
       ]
     });
-    const rentProduct = insertedProducts.find(p => p.title === 'Sakura Embroidered Kimono') || insertedProducts[0];
 
-    userPhones.forEach(async (phone, idx) => {
+    let assistant = await User.create({
+      email: 'assistant@looped.app',
+      password: '$2a$10$NotRealPasswordUsedForLoopedAIAssistantToken12345',
+      name: 'Looped AI',
+      phone: '+1234567890',
+      avatar: '🤖',
+      isVerified: true
+    });
+
+    const rentProduct = insertedProducts.find(p => p.title === 'Zara Floral Chiffon Wrap Midi Dress') || insertedProducts[0];
+
+    for (let idx = 0; idx < userPhones.length; idx++) {
+      const phone = userPhones[idx];
       try {
         // Find or create user
         let user = await User.findOne({ phone });
@@ -180,6 +188,7 @@ exports.seedProducts = async (req, res) => {
             isVerified: true
           });
         }
+
 
         // Create dummy rental
         await Rental.create({
@@ -203,12 +212,12 @@ exports.seedProducts = async (req, res) => {
           orderId: `LOOPED-ORD-12345${idx}`,
           name: 'Test Customer',
           phone,
-          productName: 'Tokyo Streetwear Hoodie',
-          size: 'XL',
-          color: 'Black',
+          productName: 'Zara Checked Flannel Overshirt',
+          size: 'L',
+          color: 'Black/Red',
           quantity: 1,
           address: '123 Main St, New Delhi, India',
-          totalAmount: 950,
+          totalAmount: 1100,
           status: 'Shipped',
           estimatedDelivery: 'Tomorrow, by 5:00 PM'
         });
@@ -217,21 +226,85 @@ exports.seedProducts = async (req, res) => {
           orderId: `LOOPED-ORD-78901${idx}`,
           name: 'Test Customer',
           phone,
-          productName: 'Plaid Wool Blazer',
+          productName: 'Mango Linen Button-Front Shirt Dress',
           size: 'M',
-          color: 'Plaid',
+          color: 'Olive',
           quantity: 1,
           address: '123 Main St, New Delhi, India',
-          totalAmount: 1600,
+          totalAmount: 1400,
           status: 'Pending',
           estimatedDelivery: '3-5 business days'
         });
       } catch (err) {
         console.error(`Error seeding data for phone ${phone}:`, err.message);
       }
-    });
+    }
 
-    res.json({ message: `Seeded ${insertedProducts.length} products, 2 orders, and 1 rental.` });
+    // Seed sample auctions
+    await Auction.deleteMany({});
+    const now = new Date();
+    await Auction.create([
+      {
+        title: 'Rare Vintage Y2K Chrome Hearts Leather Jacket',
+        description: 'Authentic 2000s archival leather biker jacket with silver dagger hardware and silk lining.',
+        image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=500&auto=format&fit=crop',
+        startingPrice: 3500,
+        currentPrice: 4200,
+        reservePrice: 4000,
+        incrementAmount: 100,
+        startTime: new Date(now.getTime() - 2 * 60 * 60 * 1000), // started 2h ago
+        endTime: new Date(now.getTime() + 2 * 60 * 60 * 1000),   // ends in 2 hours
+        status: 'live',
+        sellerId: assistant._id,
+        sellerName: 'Looped Vintage Vault',
+        totalBidders: 4,
+        bids: [
+          { bidderId: assistant._id, bidderName: 'Aarav M.', amount: 3700, timestamp: new Date(now.getTime() - 90 * 60 * 1000), isWinning: false },
+          { bidderId: assistant._id, bidderName: 'Simran K.', amount: 3900, timestamp: new Date(now.getTime() - 60 * 60 * 1000), isWinning: false },
+          { bidderId: assistant._id, bidderName: 'Dev R.', amount: 4100, timestamp: new Date(now.getTime() - 30 * 60 * 1000), isWinning: false },
+          { bidderId: assistant._id, bidderName: 'Priya S.', amount: 4200, timestamp: new Date(now.getTime() - 10 * 60 * 1000), isWinning: true },
+        ]
+      },
+      {
+        title: 'Archival Vivienne Westwood Corset Top',
+        description: 'Iconic vintage Renaissance tapestry print boned corset. Museum grade collector piece.',
+        image: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=500&auto=format&fit=crop',
+        startingPrice: 5000,
+        currentPrice: 5000,
+        reservePrice: 6000,
+        incrementAmount: 150,
+        startTime: new Date(now.getTime() + 24 * 60 * 60 * 1000), // starts tomorrow
+        endTime: new Date(now.getTime() + 48 * 60 * 60 * 1000),
+        status: 'upcoming',
+        sellerId: assistant._id,
+        sellerName: 'Tokyo Archive',
+        totalBidders: 0,
+        bids: []
+      },
+      {
+        title: 'Limited Edition Jacquemus Le Chiquito Mini Bag',
+        description: 'Pastel pink micro leather bag with gold-tone signature hardware. Includes original box and dustbag.',
+        image: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=500&auto=format&fit=crop',
+        startingPrice: 2000,
+        currentPrice: 3100,
+        reservePrice: 2800,
+        incrementAmount: 100,
+        startTime: new Date(now.getTime() - 3 * 60 * 60 * 1000),
+        endTime: new Date(now.getTime() + 20 * 60 * 1000), // ends in 20 minutes (ending soon)
+        status: 'ending',
+        sellerId: assistant._id,
+        sellerName: 'Paris Thrift Club',
+        totalBidders: 5,
+        bids: [
+          { bidderId: assistant._id, bidderName: 'Tanya P.', amount: 2200, timestamp: new Date(now.getTime() - 120 * 60 * 1000), isWinning: false },
+          { bidderId: assistant._id, bidderName: 'Rohan V.', amount: 2500, timestamp: new Date(now.getTime() - 80 * 60 * 1000), isWinning: false },
+          { bidderId: assistant._id, bidderName: 'Meera C.', amount: 2800, timestamp: new Date(now.getTime() - 45 * 60 * 1000), isWinning: false },
+          { bidderId: assistant._id, bidderName: 'Ananya G.', amount: 3100, timestamp: new Date(now.getTime() - 15 * 60 * 1000), isWinning: true },
+        ]
+      }
+    ]);
+
+    res.json({ message: `Seeded ${insertedProducts.length} products, 2 orders, 1 rental, and 3 auctions.` });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -283,36 +356,776 @@ exports.searchNatural = async (req, res) => {
   }
 };
 
-// 30 sample products with varied tags, categories, conditions
+// 50 realistic products across 5 curated fashion categories (10 per category)
 const dummyProducts = [
-  { title: 'Harajuku Patchwork Jacket', price: 1800, originalPrice: 4500, condition: 'Like New', category: "Women's Outerwear", tags: ['japan', 'streetwear', 'harajuku', 'jacket', 'colorful'], image: 'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=400', sellerName: 'Priya M.', brand: 'Vintage', size: 'M', views: 45, likes: 12 },
-  { title: 'Ivory Zari Lehenga Set', price: 3500, originalPrice: 8000, condition: 'Like New', category: "Women's Traditional", tags: ['wedding', 'jaipur', 'lehenga', 'bridal', 'traditional'], image: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400', sellerName: 'Ananya S.', brand: 'Meena Bazaar', size: 'S', views: 89, likes: 34 },
-  { title: 'Oversized Herringbone Coat', price: 2200, originalPrice: 6000, condition: 'Good', category: "Women's Outerwear", tags: ['winter', 'london', 'coat', 'formal', 'vintage'], image: 'https://images.unsplash.com/photo-1548624313-0396a6b4b47b?w=400', sellerName: 'Tara K.', brand: 'Topshop', size: 'L', views: 67, likes: 19 },
-  { title: 'Tokyo Streetwear Hoodie', price: 950, originalPrice: 2500, condition: 'Good', category: "Men's Tops", tags: ['japan', 'streetwear', 'hoodie', 'casual', 'oversized'], image: 'https://images.unsplash.com/photo-1556821840-3a63f15732ce?w=400', sellerName: 'Rohan D.', brand: 'A Bathing Ape', size: 'XL', views: 120, likes: 48 },
-  { title: 'Red Bandhani Dupatta', price: 450, originalPrice: 1200, condition: 'Like New', category: "Accessories", tags: ['jaipur', 'wedding', 'bandhani', 'traditional', 'colorful'], image: 'https://images.unsplash.com/photo-1569143252821-a6e4a8c78e08?w=400', sellerName: 'Kavya L.', brand: 'Rajasthan Craft', size: 'One Size', views: 34, likes: 15 },
-  { title: 'Plaid Wool Blazer', price: 1600, originalPrice: 4200, condition: 'Like New', category: "Men's Outerwear", tags: ['winter', 'london', 'blazer', 'formal', 'classic'], image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400', sellerName: 'Neil J.', brand: 'M&S', size: 'M', views: 55, likes: 22 },
-  { title: 'Sakura Embroidered Kimono', price: 2800, originalPrice: 7000, condition: 'Good', category: "Women's Traditional", tags: ['japan', 'kimono', 'floral', 'traditional', 'vintage'], image: 'https://images.unsplash.com/photo-1528360983277-13d401cdc186?w=400', sellerName: 'Mia W.', brand: 'Kyoto Thrift', size: 'Free', views: 201, likes: 88 },
-  { title: 'Block Print Anarkali Suit', price: 1100, originalPrice: 2800, condition: 'Like New', category: "Women's Traditional", tags: ['jaipur', 'wedding', 'anarkali', 'block-print', 'festive'], image: 'https://images.unsplash.com/photo-1583391733956-6c78276477e2?w=400', sellerName: 'Sneha P.', brand: 'FabIndia', size: 'S', views: 73, likes: 31 },
-  { title: 'Thermal Fleece Jogger Set', price: 800, originalPrice: 1800, condition: 'Good', category: "Men's Bottoms", tags: ['winter', 'casual', 'fleece', 'athleisure', 'cozy'], image: 'https://images.unsplash.com/photo-1509551388413-e18d0ac5d495?w=400', sellerName: 'Arjun B.', brand: 'H&M Sport', size: 'L', views: 44, likes: 9 },
-  { title: 'Denim Cargo Wide Leg', price: 1200, originalPrice: 3000, condition: 'Like New', category: "Women's Bottoms", tags: ['streetwear', 'denim', 'y2k', 'casual', 'trendy'], image: 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=400', sellerName: 'Zoe F.', brand: 'Zara', size: 'S', views: 156, likes: 67 },
-  { title: 'Chunky Knit Turtleneck', price: 700, originalPrice: 1900, condition: 'Good', category: "Women's Tops", tags: ['winter', 'knit', 'cozy', 'casual', 'london'], image: 'https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=400', sellerName: 'Lisa R.', brand: 'COS', size: 'M', views: 88, likes: 29 },
-  { title: 'Origami Pleat Trousers', price: 1400, originalPrice: 3500, condition: 'Like New', category: "Women's Bottoms", tags: ['japan', 'minimalist', 'pleated', 'formal', 'streetwear'], image: 'https://images.unsplash.com/photo-1594938298603-c8148c4b4ae4?w=400', sellerName: 'Haruto Y.', brand: 'Issey Miyake', size: 'XS', views: 112, likes: 45 },
-  { title: 'Mirror Work Choli', price: 900, originalPrice: 2400, condition: 'Fair', category: "Women's Traditional", tags: ['jaipur', 'wedding', 'mirror-work', 'festive', 'colorful'], image: 'https://images.unsplash.com/photo-1620919942697-c88c5aebd43a?w=400', sellerName: 'Diya K.', brand: 'Rajasthali', size: 'M', views: 62, likes: 24 },
-  { title: 'Oxford Leather Brogues', price: 1500, originalPrice: 4000, condition: 'Good', category: "Footwear", tags: ['london', 'winter', 'formal', 'classic', 'leather'], image: 'https://images.unsplash.com/photo-1614252369475-531eba835eb1?w=400', sellerName: 'Sam H.', brand: 'Clarks', size: '42', views: 77, likes: 18 },
-  { title: 'Vintage Boro Indigo Jacket', price: 3200, originalPrice: 9000, condition: 'Well Loved', category: "Men's Outerwear", tags: ['japan', 'vintage', 'indigo', 'boro', 'artisan'], image: 'https://images.unsplash.com/photo-1551537482-f2075a1d41f2?w=400', sellerName: 'Kenji T.', brand: 'Vintage Japan', size: 'M', views: 189, likes: 76 },
-  { title: 'Bridal Kundan Necklace Set', price: 2600, originalPrice: 6500, condition: 'Like New', category: "Jewelry", tags: ['jaipur', 'wedding', 'bridal', 'kundan', 'traditional'], image: 'https://images.unsplash.com/photo-1617038220319-276d3cfab638?w=400', sellerName: 'Ritu V.', brand: 'Amrapali', size: 'One Size', views: 95, likes: 42 },
-  { title: 'Camel Cashmere Scarf', price: 850, originalPrice: 2200, condition: 'Like New', category: "Accessories", tags: ['winter', 'london', 'cashmere', 'luxury', 'classic'], image: 'https://images.unsplash.com/photo-1520903920243-00d872a2d1c9?w=400', sellerName: 'Claire B.', brand: 'Johnstons', size: 'One Size', views: 43, likes: 16 },
-  { title: 'Kawaii Pastel Coord Set', price: 1300, originalPrice: 3200, condition: 'Like New', category: "Women's Sets", tags: ['japan', 'kawaii', 'pastel', 'cute', 'harajuku'], image: 'https://images.unsplash.com/photo-1519985176271-adb1088fa94c?w=400', sellerName: 'Yuki A.', brand: 'Axes Femme', size: 'S', views: 167, likes: 71 },
-  { title: 'Sharara with Zari Dupatta', price: 2000, originalPrice: 5000, condition: 'Good', category: "Women's Traditional", tags: ['jaipur', 'wedding', 'sharara', 'festive', 'traditional'], image: 'https://images.unsplash.com/photo-1588965218882-8528fdb1c2a3?w=400', sellerName: 'Meera G.', brand: 'Craftsvilla', size: 'M', views: 58, likes: 20 },
-  { title: 'Faux Fur Teddy Coat', price: 1700, originalPrice: 4500, condition: 'Like New', category: "Women's Outerwear", tags: ['winter', 'london', 'faux-fur', 'trendy', 'cozy'], image: 'https://images.unsplash.com/photo-1543087903-1ac2364d7188?w=400', sellerName: 'Emma L.', brand: 'ASOS', size: 'L', views: 134, likes: 56 },
-  { title: 'Grunge Layered Flannel', price: 600, originalPrice: 1500, condition: 'Good', category: "Men's Tops", tags: ['streetwear', 'grunge', 'flannel', '90s', 'casual'], image: 'https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=400', sellerName: 'Jake M.', brand: 'Thrift', size: 'L', views: 99, likes: 33 },
-  { title: 'Meenakari Potli Bag', price: 550, originalPrice: 1400, condition: 'Like New', category: "Bags", tags: ['jaipur', 'wedding', 'meenakari', 'traditional', 'accessory'], image: 'https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=400', sellerName: 'Anita R.', brand: 'Rajasthani Craft', size: 'One Size', views: 47, likes: 21 },
-  { title: 'Linen Wide-Leg Pants', price: 750, originalPrice: 1800, condition: 'Like New', category: "Women's Bottoms", tags: ['minimalist', 'linen', 'summer', 'casual', 'japan'], image: 'https://images.unsplash.com/photo-1506629082955-511b1aa562c8?w=400', sellerName: 'Hana N.', brand: 'Muji', size: 'XS', views: 88, likes: 35 },
-  { title: 'Merino Wool Roll-Neck', price: 920, originalPrice: 2600, condition: 'Good', category: "Men's Tops", tags: ['winter', 'london', 'merino', 'classic', 'smart'], image: 'https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=400', sellerName: 'Tom F.', brand: 'Uniqlo', size: 'M', views: 61, likes: 14 },
-  { title: 'Y2K Vinyl Flared Skirt', price: 680, originalPrice: 1600, condition: 'Like New', category: "Women's Bottoms", tags: ['streetwear', 'y2k', 'vinyl', 'retro', 'trendy'], image: 'https://images.unsplash.com/photo-1583496661160-fb5886a773af?w=400', sellerName: 'Luna S.', brand: 'Vintage', size: 'XS', views: 143, likes: 62 },
-  { title: 'Shearling Aviator Jacket', price: 2900, originalPrice: 7500, condition: 'Good', category: "Men's Outerwear", tags: ['winter', 'london', 'aviator', 'leather', 'vintage'], image: 'https://images.unsplash.com/photo-1521223890158-f9f7c3d5d504?w=400', sellerName: 'Lucas M.', brand: 'Schott NYC', size: 'L', views: 176, likes: 70 },
-  { title: 'Banaras Silk Saree', price: 4200, originalPrice: 11000, condition: 'New with tags', category: "Women's Traditional", tags: ['wedding', 'saree', 'silk', 'banarasi', 'traditional'], image: 'https://images.unsplash.com/photo-1617627143233-69db79f9697f?w=400', sellerName: 'Sunita B.', brand: 'Ritu Kumar', size: 'Free', views: 210, likes: 93 },
-  { title: 'Denim Patchwork Shorts', price: 480, originalPrice: 1200, condition: 'Good', category: "Women's Bottoms", tags: ['streetwear', 'denim', 'patchwork', 'summer', 'casual'], image: 'https://images.unsplash.com/photo-1485230895905-ec40ba36b9bc?w=400', sellerName: 'Sara K.', brand: 'Levi\'s', size: 'S', views: 72, likes: 28 },
-  { title: 'Mohair Fuzzy Cardigan', price: 1050, originalPrice: 2800, condition: 'Like New', category: "Women's Tops", tags: ['winter', 'london', 'mohair', 'cozy', 'knit'], image: 'https://images.unsplash.com/photo-1434389677669-e08b4cac3105?w=400', sellerName: 'Grace O.', brand: 'Arket', size: 'M', views: 118, likes: 51 },
-  { title: 'Platform Mary Janes', price: 1100, originalPrice: 2900, condition: 'Like New', category: "Footwear", tags: ['japan', 'kawaii', 'platform', 'streetwear', 'harajuku'], image: 'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=400', sellerName: 'Chiaki S.', brand: 'Liz Lisa', size: '38', views: 196, likes: 84 },
+  // ==========================================
+  // Category 1: Women's Crop Tops (10 items)
+  // ==========================================
+  {
+    title: 'Zara Ribbed Knit Halter Crop Top',
+    price: 650,
+    originalPrice: 1590,
+    condition: 'Like New',
+    category: "Women's Crop Tops",
+    tags: ['casual', 'summer', 'rib-knit', 'zara', 'minimalist', 'crop top', 'streetwear'],
+    image: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=400&h=500&fit=crop',
+    sellerName: 'Priya M.',
+    brand: 'Zara',
+    size: 'S',
+    description: 'Soft yellow ribbed knit halter top in flawless condition. Perfect for summer outings with zero stretch or pilling.',
+    views: 142,
+    likes: 58
+  },
+  {
+    title: 'H&M Cotton Corset Style Crop Top',
+    price: 450,
+    originalPrice: 1299,
+    condition: 'Good',
+    category: "Women's Crop Tops",
+    tags: ['corset', 'cotton', 'h&m', 'casual', 'y2k', 'crop top', 'streetwear'],
+    image: 'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=400&h=500&fit=crop',
+    sellerName: 'Riya S.',
+    brand: 'H&M',
+    size: 'M',
+    description: 'Cute structured cotton crop top with boning detail. Worn a few times, gentle wash wear but no stains or rips.',
+    views: 98,
+    likes: 36
+  },
+  {
+    title: 'Urbanic Crochet Boho Crop Top',
+    price: 550,
+    originalPrice: 1490,
+    condition: 'Like New',
+    category: "Women's Crop Tops",
+    tags: ['crochet', 'boho', 'urbanic', 'summer', 'knit', 'crop top', 'festive'],
+    image: 'https://images.unsplash.com/photo-1534126511673-b6899657816a?w=400&h=500&fit=crop',
+    sellerName: 'Ananya G.',
+    brand: 'Urbanic',
+    size: 'S',
+    description: 'Handmade-style crochet knit crop top with scalloped hem. Only worn once for a beach photoshoot.',
+    views: 115,
+    likes: 49
+  },
+  {
+    title: 'Forever 21 Floral Smocked Cami Top',
+    price: 380,
+    originalPrice: 1199,
+    condition: 'Good',
+    category: "Women's Crop Tops",
+    tags: ['floral', 'smocked', 'forever21', 'summer', 'chiffon', 'crop top', 'casual'],
+    image: 'https://images.unsplash.com/photo-1529139574466-a303027c1d8b?w=400&h=500&fit=crop',
+    sellerName: 'Tanvi D.',
+    brand: 'Forever 21',
+    size: 'XS',
+    description: 'Ditsy floral print cami with stretchy smocked bodice and tie straps. Very light color fade around inner seam.',
+    views: 76,
+    likes: 24
+  },
+  {
+    title: 'Mango Linen Wrap Crop Blouse',
+    price: 850,
+    originalPrice: 2290,
+    condition: 'Like New',
+    category: "Women's Crop Tops",
+    tags: ['linen', 'wrap', 'mango', 'minimalist', 'summer', 'crop top', 'japan'],
+    image: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?w=400&h=500&fit=crop',
+    sellerName: 'Sneha P.',
+    brand: 'Mango',
+    size: 'M',
+    description: 'Pure breathable linen wrap top with self-tie waist. Worn twice, crisp texture and intact stitch lines.',
+    views: 165,
+    likes: 71
+  },
+  {
+    title: 'Nike Pro Dri-FIT Athletic Crop Top',
+    price: 900,
+    originalPrice: 2495,
+    condition: 'New with tags',
+    category: "Women's Crop Tops",
+    tags: ['athleisure', 'sports', 'nike', 'dri-fit', 'crop top', 'streetwear', 'gym'],
+    image: 'https://images.unsplash.com/photo-1554412933-514a83d2f3c8?w=400&h=500&fit=crop',
+    sellerName: 'Kavya N.',
+    brand: 'Nike',
+    size: 'S',
+    description: 'Brand new Nike Pro performance crop top with original price tags attached. Moisture-wicking compression fit.',
+    views: 180,
+    likes: 65
+  },
+  {
+    title: 'Zara Square-Neck Long Sleeve Crop Top',
+    price: 720,
+    originalPrice: 1790,
+    condition: 'Like New',
+    category: "Women's Crop Tops",
+    tags: ['square-neck', 'zara', 'winter', 'knit', 'chic', 'crop top', 'party'],
+    image: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=400&h=500&fit=crop',
+    sellerName: 'Pooja R.',
+    brand: 'Zara',
+    size: 'L',
+    description: 'Flattering deep square neckline top with fitted long sleeves. Premium stretch fabric with no visible signs of wear.',
+    views: 88,
+    likes: 32
+  },
+  {
+    title: 'Vero Moda Puff Sleeve Floral Top',
+    price: 490,
+    originalPrice: 1699,
+    condition: 'Good',
+    category: "Women's Crop Tops",
+    tags: ['puff-sleeve', 'floral', 'vero moda', 'casual', 'cotton', 'crop top', 'jaipur'],
+    image: 'https://images.unsplash.com/photo-1516762689617-e1cffcef479d?w=400&h=500&fit=crop',
+    sellerName: 'Neha T.',
+    brand: 'Vero Moda',
+    size: 'M',
+    description: 'Charming floral print blouse with elasticated puff sleeves. Minor elasticity wear on one shoulder, looks great on.',
+    views: 63,
+    likes: 19
+  },
+  {
+    title: 'ONLY Satin Cowl Neck Crop Top',
+    price: 580,
+    originalPrice: 1599,
+    condition: 'Like New',
+    category: "Women's Crop Tops",
+    tags: ['satin', 'cowl-neck', 'only', 'party', 'y2k', 'crop top', 'night-out'],
+    image: 'https://images.unsplash.com/photo-1551803091-e20673f15770?w=400&h=500&fit=crop',
+    sellerName: 'Diya K.',
+    brand: 'ONLY',
+    size: 'S',
+    description: 'Glossy emerald green satin top featuring an elegant draped cowl neck and adjustable cross-back straps.',
+    views: 134,
+    likes: 52
+  },
+  {
+    title: 'Urbanic Ruched Front Linen Top',
+    price: 620,
+    originalPrice: 1690,
+    condition: 'New with tags',
+    category: "Women's Crop Tops",
+    tags: ['linen', 'ruched', 'urbanic', 'summer', 'casual', 'crop top', 'vintage'],
+    image: 'https://images.unsplash.com/photo-1578587018452-892bacefd3f2?w=400&h=500&fit=crop',
+    sellerName: 'Tara K.',
+    brand: 'Urbanic',
+    size: 'XS',
+    description: 'Freshly unboxed with tags intact. Features front drawstring ruching for customizable crop length.',
+    views: 105,
+    likes: 41
+  },
+
+  // ==========================================
+  // Category 2: Women's Dresses (10 items)
+  // ==========================================
+  {
+    title: 'Zara Floral Chiffon Wrap Midi Dress',
+    price: 1200,
+    originalPrice: 3990,
+    condition: 'Like New',
+    category: "Women's Dresses",
+    tags: ['floral', 'wrap', 'chiffon', 'zara', 'summer', 'dress', 'boho'],
+    image: 'https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?w=400&h=500&fit=crop',
+    sellerName: 'Priya M.',
+    brand: 'Zara',
+    size: 'M',
+    description: 'Flowy chiffon midi dress with delicate floral prints and an adjustable waist tie. Worn once for a brunch.',
+    views: 178,
+    likes: 74
+  },
+  {
+    title: 'H&M Satin Cowl Slip Dress',
+    price: 850,
+    originalPrice: 2299,
+    condition: 'Like New',
+    category: "Women's Dresses",
+    tags: ['satin', 'slip', 'h&m', 'party', 'y2k', 'dress', 'minimalist'],
+    image: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=400&h=500&fit=crop',
+    sellerName: 'Ananya S.',
+    brand: 'H&M',
+    size: 'S',
+    description: 'Champagne gold satin slip dress with cowl neck. Beautiful silky drape with zero flaws or thread pulls.',
+    views: 152,
+    likes: 63
+  },
+  {
+    title: 'AND Bohemian Tiered Maxi Dress',
+    price: 950,
+    originalPrice: 2999,
+    condition: 'Good',
+    category: "Women's Dresses",
+    tags: ['maxi', 'bohemian', 'and', 'cotton', 'summer', 'dress', 'jaipur'],
+    image: 'https://images.unsplash.com/photo-1566174053879-31528523f8ae?w=400&h=500&fit=crop',
+    sellerName: 'Meera G.',
+    brand: 'AND',
+    size: 'L',
+    description: 'Crimson tiered maxi dress with tassel neck ties. Light wash softening on fabric, overall excellent condition.',
+    views: 92,
+    likes: 38
+  },
+  {
+    title: 'Mango Linen Button-Front Shirt Dress',
+    price: 1400,
+    originalPrice: 4590,
+    condition: 'Like New',
+    category: "Women's Dresses",
+    tags: ['linen', 'shirt-dress', 'mango', 'minimalist', 'formal', 'dress', 'japan'],
+    image: 'https://images.unsplash.com/photo-1585487000160-6ebcfceb0d03?w=400&h=500&fit=crop',
+    sellerName: 'Ritu V.',
+    brand: 'Mango',
+    size: 'M',
+    description: 'Classic olive linen shirt dress with wooden buttons and detachable fabric belt. Immaculate condition.',
+    views: 140,
+    likes: 55
+  },
+  {
+    title: 'FabIndia Hand-Block Print Anarkali Dress',
+    price: 1600,
+    originalPrice: 4290,
+    condition: 'Like New',
+    category: "Women's Dresses",
+    tags: ['anarkali', 'block-print', 'fabindia', 'cotton', 'traditional', 'jaipur', 'wedding'],
+    image: 'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?w=400&h=500&fit=crop',
+    sellerName: 'Sneha P.',
+    brand: 'FabIndia',
+    size: 'S',
+    description: 'Pure mulmul cotton flared dress with Bagru block print borders. Gorgeous festive drape with zero defects.',
+    views: 195,
+    likes: 79
+  },
+  {
+    title: 'Forever 21 Ribbed Knit Bodycon Dress',
+    price: 600,
+    originalPrice: 1899,
+    condition: 'Good',
+    category: "Women's Dresses",
+    tags: ['bodycon', 'knit', 'forever21', 'casual', 'winter', 'dress', 'streetwear'],
+    image: 'https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?w=400&h=500&fit=crop',
+    sellerName: 'Riya S.',
+    brand: 'Forever 21',
+    size: 'S',
+    description: 'Thick ribbed midi dress with side slit. Moderate wear on fabric, still holds flattering shape nicely.',
+    views: 84,
+    likes: 30
+  },
+  {
+    title: 'Biba Embroidered Festive Kurta Dress',
+    price: 1350,
+    originalPrice: 3799,
+    condition: 'Good',
+    category: "Women's Dresses",
+    tags: ['embroidered', 'festive', 'biba', 'silk-blend', 'traditional', 'jaipur', 'dress'],
+    image: 'https://images.unsplash.com/photo-1496747611176-843222e1e57c?w=400&h=500&fit=crop',
+    sellerName: 'Sunita B.',
+    brand: 'Biba',
+    size: 'XL',
+    description: 'Teal silk-blend flared dress with golden thread embroidery along the yoke. Slight fray on one tassel string.',
+    views: 110,
+    likes: 42
+  },
+  {
+    title: 'ONLY Tiered Pastel Smocked Dress',
+    price: 750,
+    originalPrice: 2199,
+    condition: 'Good',
+    category: "Women's Dresses",
+    tags: ['pastel', 'tiered', 'only', 'cotton', 'summer', 'dress', 'cottagecore'],
+    image: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=400&h=500&fit=crop',
+    sellerName: 'Kavya L.',
+    brand: 'ONLY',
+    size: 'XS',
+    description: 'Breezy lilac tiered dress with stretchy smocked back. Soft washed cotton feel with all stitches secure.',
+    views: 73,
+    likes: 27
+  },
+  {
+    title: 'Marks & Spencer Little Black Cocktail Dress',
+    price: 1800,
+    originalPrice: 4999,
+    condition: 'New with tags',
+    category: "Women's Dresses",
+    tags: ['cocktail', 'lbd', 'marks & spencer', 'crepe', 'formal', 'party', 'dress'],
+    image: 'https://images.unsplash.com/photo-1612336307429-8a898d10e223?w=400&h=500&fit=crop',
+    sellerName: 'Tara K.',
+    brand: 'Marks & Spencer',
+    size: 'M',
+    description: 'Never worn M&S structured crepe shift dress with original brand tags. Pristine luxury silhouette.',
+    views: 162,
+    likes: 68
+  },
+  {
+    title: 'Vero Moda Floral A-Line Sundress',
+    price: 890,
+    originalPrice: 2599,
+    condition: 'New with tags',
+    category: "Women's Dresses",
+    tags: ['sundress', 'floral', 'vero moda', 'viscose', 'summer', 'dress', 'casual'],
+    image: 'https://images.unsplash.com/photo-1502716119720-b23a93e5fe1b?w=400&h=500&fit=crop',
+    sellerName: 'Tanvi D.',
+    brand: 'Vero Moda',
+    size: 'L',
+    description: 'Sunshine yellow daisy print dress with sweet neckline. Brand new with tags attached, never used.',
+    views: 128,
+    likes: 51
+  },
+
+  // ==========================================
+  // Category 3: Women's T-Shirts (10 items)
+  // ==========================================
+  {
+    title: 'Uniqlo Supima Cotton Crewneck Tee',
+    price: 450,
+    originalPrice: 1290,
+    condition: 'Like New',
+    category: "Women's T-Shirts",
+    tags: ['supima', 'cotton', 'uniqlo', 'minimalist', 'japan', 'basics', 'casual'],
+    image: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=400&h=500&fit=crop',
+    sellerName: 'Priya M.',
+    brand: 'Uniqlo',
+    size: 'M',
+    description: 'Silky smooth 100% Supima cotton basic white tee. Only washed once on delicate cycle, zero yellowing.',
+    views: 132,
+    likes: 48
+  },
+  {
+    title: 'H&M Oversized Graphic Band Tee',
+    price: 400,
+    originalPrice: 1499,
+    condition: 'Good',
+    category: "Women's T-Shirts",
+    tags: ['oversized', 'graphic', 'h&m', 'vintage', 'streetwear', 'grunge', 'cotton'],
+    image: 'https://images.unsplash.com/photo-1503342394128-c104d54dba01?w=400&h=500&fit=crop',
+    sellerName: 'Riya S.',
+    brand: 'H&M',
+    size: 'L',
+    description: 'Relaxed drop-shoulder rock graphic tee in charcoal grey. Cool vintage washed finish with minor collar fade.',
+    views: 145,
+    likes: 59
+  },
+  {
+    title: 'Zara Heavyweight Boxy T-Shirt',
+    price: 550,
+    originalPrice: 1590,
+    condition: 'Like New',
+    category: "Women's T-Shirts",
+    tags: ['boxy', 'heavyweight', 'zara', 'streetwear', 'cotton', 'casual', 'minimalist'],
+    image: 'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=400&h=500&fit=crop',
+    sellerName: 'Ananya G.',
+    brand: 'Zara',
+    size: 'S',
+    description: 'Thick structured cotton tee with cropped boxy cut. Retains rich jet-black color and crisp neckline.',
+    views: 112,
+    likes: 44
+  },
+  {
+    title: "Levi's Classic Batwing Logo Tee",
+    price: 480,
+    originalPrice: 1399,
+    condition: 'Good',
+    category: "Women's T-Shirts",
+    tags: ['logo', 'classic', 'levi\'s', 'denim-vibe', 'cotton', 'casual', '90s'],
+    image: 'https://images.unsplash.com/photo-1562157873-818bc0726f68?w=400&h=500&fit=crop',
+    sellerName: 'Kavya N.',
+    brand: "Levi's",
+    size: 'M',
+    description: 'Signature red batwing print on crisp white cotton. Slight cracking on screen print from regular wear.',
+    views: 89,
+    likes: 33
+  },
+  {
+    title: 'FabIndia Indigo Handblock T-Shirt',
+    price: 620,
+    originalPrice: 1590,
+    condition: 'Like New',
+    category: "Women's T-Shirts",
+    tags: ['indigo', 'block-print', 'fabindia', 'organic-cotton', 'jaipur', 'boho', 'artisan'],
+    image: 'https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=400&h=500&fit=crop',
+    sellerName: 'Sneha P.',
+    brand: 'FabIndia',
+    size: 'M',
+    description: 'Artisanal dabu indigo dyed t-shirt made of organic slub cotton. Washed with herbal detergent, no color bleeding.',
+    views: 168,
+    likes: 62
+  },
+  {
+    title: 'Mango Striped Breton Sailor Tee',
+    price: 500,
+    originalPrice: 1790,
+    condition: 'Good',
+    category: "Women's T-Shirts",
+    tags: ['striped', 'breton', 'mango', 'cotton', 'french-chic', 'classic', 'casual'],
+    image: 'https://images.unsplash.com/photo-1527719327859-c6ce80353573?w=400&h=500&fit=crop',
+    sellerName: 'Pooja R.',
+    brand: 'Mango',
+    size: 'S',
+    description: 'Navy and white nautical striped boatneck t-shirt. Soft cotton feel with very minor linting near underarms.',
+    views: 77,
+    likes: 26
+  },
+  {
+    title: 'ONLY Distressed Washed Cotton Tee',
+    price: 350,
+    originalPrice: 1199,
+    condition: 'Good',
+    category: "Women's T-Shirts",
+    tags: ['washed', 'distressed', 'only', 'casual', 'cotton', 'summer', 'y2k'],
+    image: 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?w=400&h=500&fit=crop',
+    sellerName: 'Neha T.',
+    brand: 'ONLY',
+    size: 'XS',
+    description: 'Vintage washed olive green relaxed tee with raw cut hem. Worn multiple times but clean and comfortable.',
+    views: 65,
+    likes: 18
+  },
+  {
+    title: 'Urbanic Ribbed Mock Neck Top',
+    price: 520,
+    originalPrice: 1390,
+    condition: 'Like New',
+    category: "Women's T-Shirts",
+    tags: ['mock-neck', 'rib-knit', 'urbanic', 'winter', 'chic', 'minimalist', 'london'],
+    image: 'https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=400&h=500&fit=crop',
+    sellerName: 'Diya K.',
+    brand: 'Urbanic',
+    size: 'S',
+    description: 'Fitted ribbed half-sleeve tee with high neck collar. Flawless elastic recovery and zero fuzzing.',
+    views: 120,
+    likes: 47
+  },
+  {
+    title: 'Nike Sportswear Essential Tee',
+    price: 750,
+    originalPrice: 1995,
+    condition: 'New with tags',
+    category: "Women's T-Shirts",
+    tags: ['athleisure', 'swoosh', 'nike', 'cotton', 'streetwear', 'casual', 'sportswear'],
+    image: 'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=400&h=500&fit=crop',
+    sellerName: 'Tanvi D.',
+    brand: 'Nike',
+    size: 'L',
+    description: 'Authentic Nike boyfriend-fit tee featuring embroidered mini swoosh. Brand new with tag attached.',
+    views: 155,
+    likes: 67
+  },
+  {
+    title: 'Forever 21 Pastel Tie-Dye Oversized Tee',
+    price: 490,
+    originalPrice: 1299,
+    condition: 'New with tags',
+    category: "Women's T-Shirts",
+    tags: ['tie-dye', 'pastel', 'forever21', 'oversized', 'y2k', 'summer', 'kawaii'],
+    image: 'https://images.unsplash.com/photo-1508427953056-b00b8d78ebf5?w=400&h=500&fit=crop',
+    sellerName: 'Tara K.',
+    brand: 'Forever 21',
+    size: 'XL',
+    description: 'Soft pastel pink and lavender spiral tie-dye tee. Unworn deadstock piece with original tags.',
+    views: 96,
+    likes: 39
+  },
+
+  // ==========================================
+  // Category 4: Men's Shirts (10 items)
+  // ==========================================
+  {
+    title: 'Zara Checked Flannel Overshirt',
+    price: 1100,
+    originalPrice: 3590,
+    condition: 'Like New',
+    category: "Men's Shirts",
+    tags: ['flannel', 'checked', 'zara', 'overshirt', 'winter', 'streetwear', 'grunge'],
+    image: 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=400&h=500&fit=crop',
+    sellerName: 'Rohan M.',
+    brand: 'Zara',
+    size: 'L',
+    description: 'Thick brushed cotton buffalo check flannel with dual chest pockets. Cozy winter layer with no pilling.',
+    views: 145,
+    likes: 54
+  },
+  {
+    title: 'H&M Plaid Relaxed Flannel Shirt',
+    price: 650,
+    originalPrice: 1999,
+    condition: 'Good',
+    category: "Men's Shirts",
+    tags: ['plaid', 'flannel', 'h&m', 'casual', 'cotton', 'winter', 'streetwear'],
+    image: 'https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=400&h=500&fit=crop',
+    sellerName: 'Aarav S.',
+    brand: 'H&M',
+    size: 'M',
+    description: 'Classic red and navy plaid button-down. Gentle softening from laundering, all original buttons intact.',
+    views: 108,
+    likes: 37
+  },
+  {
+    title: 'Uniqlo Premium Linen Long Sleeve Shirt',
+    price: 950,
+    originalPrice: 2990,
+    condition: 'Like New',
+    category: "Men's Shirts",
+    tags: ['linen', 'french-linen', 'uniqlo', 'summer', 'minimalist', 'japan', 'resort'],
+    image: 'https://images.unsplash.com/photo-1603252109303-2751441dd157?w=400&h=500&fit=crop',
+    sellerName: 'Kabir D.',
+    brand: 'Uniqlo',
+    size: 'M',
+    description: '100% premium French linen in crisp beige tone. Exceptionally breathable, worn once to an outdoor event.',
+    views: 172,
+    likes: 66
+  },
+  {
+    title: 'Marks & Spencer Oxford Cotton Formal Shirt',
+    price: 900,
+    originalPrice: 2799,
+    condition: 'Good',
+    category: "Men's Shirts",
+    tags: ['oxford', 'formal', 'marks & spencer', 'cotton', 'office', 'london', 'classic'],
+    image: 'https://images.unsplash.com/photo-1589310243389-96a5483213a8?w=400&h=500&fit=crop',
+    sellerName: 'Neil J.',
+    brand: 'Marks & Spencer',
+    size: 'L',
+    description: 'Sky blue pinpoint Oxford shirt with button-down collar. Minor crease near lower hem, presses out crisp.',
+    views: 81,
+    likes: 25
+  },
+  {
+    title: "Levi's Western Denim Snap-Button Shirt",
+    price: 1350,
+    originalPrice: 3999,
+    condition: 'Like New',
+    category: "Men's Shirts",
+    tags: ['western', 'denim', 'levi\'s', 'pearl-snap', 'vintage', 'casual', 'streetwear'],
+    image: 'https://images.unsplash.com/photo-1607345366928-199ea26cfe3e?w=400&h=500&fit=crop',
+    sellerName: 'Aditya V.',
+    brand: "Levi's",
+    size: 'XL',
+    description: 'Mid-wash sturdy denim western shirt with authentic pearlized snap buttons and pointed yoke detailing.',
+    views: 190,
+    likes: 77
+  },
+  {
+    title: 'FabIndia Handspun Khadi Cotton Shirt',
+    price: 750,
+    originalPrice: 2190,
+    condition: 'Like New',
+    category: "Men's Shirts",
+    tags: ['khadi', 'handspun', 'fabindia', 'cotton', 'jaipur', 'ethnic', 'sustainable'],
+    image: 'https://images.unsplash.com/photo-1598033129183-c4f50c736f10?w=400&h=500&fit=crop',
+    sellerName: 'Vikram S.',
+    brand: 'FabIndia',
+    size: 'M',
+    description: 'Natural ecru hand-loomed khadi short kurta shirt with mandarin collar and coconut shell buttons.',
+    views: 116,
+    likes: 41
+  },
+  {
+    title: 'Tommy Hilfiger Classic Striped Poplin Shirt',
+    price: 1450,
+    originalPrice: 4999,
+    condition: 'Good',
+    category: "Men's Shirts",
+    tags: ['striped', 'poplin', 'tommy hilfiger', 'preppy', 'formal', 'cotton', 'smart'],
+    image: 'https://images.unsplash.com/photo-1563630423918-b58f07336ac9?w=400&h=500&fit=crop',
+    sellerName: 'Ishaan G.',
+    brand: 'Tommy Hilfiger',
+    size: 'L',
+    description: 'Bengal stripe poplin shirt with iconic chest flag embroidery. Tiny fabric wear on inside of collar cuff.',
+    views: 138,
+    likes: 49
+  },
+  {
+    title: 'Zara Resort Printed Cuban Collar Shirt',
+    price: 820,
+    originalPrice: 2590,
+    condition: 'Good',
+    category: "Men's Shirts",
+    tags: ['cuban-collar', 'resort', 'zara', 'viscose', 'summer', 'tropical', 'streetwear'],
+    image: 'https://images.unsplash.com/photo-1578932750294-f5075e85f44a?w=400&h=500&fit=crop',
+    sellerName: 'Dev K.',
+    brand: 'Zara',
+    size: 'S',
+    description: 'Silky drape camp collar shirt with abstract foliage motifs. Very soft and breezy, worn on one vacation.',
+    views: 95,
+    likes: 33
+  },
+  {
+    title: 'H&M Military Utility Pocket Overshirt',
+    price: 880,
+    originalPrice: 2499,
+    condition: 'New with tags',
+    category: "Men's Shirts",
+    tags: ['utility', 'military', 'h&m', 'cargo', 'twill', 'streetwear', 'casual'],
+    image: 'https://images.unsplash.com/photo-1621072156002-e2fccdc0b176?w=400&h=500&fit=crop',
+    sellerName: 'Rohan M.',
+    brand: 'H&M',
+    size: 'L',
+    description: 'Olive green heavy cotton twill shirt jacket with flap cargo chest pockets. New with tags still attached.',
+    views: 150,
+    likes: 60
+  },
+  {
+    title: 'Uniqlo Broadcloth Slim Fit Dress Shirt',
+    price: 800,
+    originalPrice: 2490,
+    condition: 'New with tags',
+    category: "Men's Shirts",
+    tags: ['broadcloth', 'slim-fit', 'uniqlo', 'formal', 'japan', 'cotton', 'office'],
+    image: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=400&h=500&fit=crop',
+    sellerName: 'Kabir D.',
+    brand: 'Uniqlo',
+    size: 'M',
+    description: 'Unopened in store packaging. Easy-care fine broadcloth white formal shirt with structured spread collar.',
+    views: 122,
+    likes: 45
+  },
+
+  // ==========================================
+  // Category 5: Women's/Men's Bottoms (10 items)
+  // ==========================================
+  {
+    title: "Levi's 501 Original Straight Leg Jeans",
+    price: 1600,
+    originalPrice: 4599,
+    condition: 'Like New',
+    category: "Women's/Men's Bottoms",
+    tags: ['501', 'straight-leg', 'levi\'s', 'denim', 'vintage', 'classic', 'streetwear'],
+    image: 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=400&h=500&fit=crop',
+    sellerName: 'Aditya V.',
+    brand: "Levi's",
+    size: '32',
+    description: "Iconic Levi's 501 button fly jeans in medium indigo wash. Sturdy 100% heavyweight cotton with no fraying.",
+    views: 198,
+    likes: 80
+  },
+  {
+    title: 'Zara High-Waisted Wide Leg Tailored Trousers',
+    price: 1150,
+    originalPrice: 3290,
+    condition: 'Like New',
+    category: "Women's/Men's Bottoms",
+    tags: ['wide-leg', 'tailored', 'zara', 'crepe', 'formal', 'minimalist', 'london'],
+    image: 'https://images.unsplash.com/photo-1506629082955-511b1aa562c8?w=400&h=500&fit=crop',
+    sellerName: 'Priya M.',
+    brand: 'Zara',
+    size: '28',
+    description: 'Fluid pleated wide-leg trousers in camel beige with high-rise waist and belt loops. Perfect condition.',
+    views: 164,
+    likes: 70
+  },
+  {
+    title: 'H&M High-Waist Vintage Mom Jeans',
+    price: 750,
+    originalPrice: 2299,
+    condition: 'Good',
+    category: "Women's/Men's Bottoms",
+    tags: ['mom-jeans', 'high-waist', 'h&m', 'denim', '90s', 'casual', 'vintage'],
+    image: 'https://images.unsplash.com/photo-1517445312882-bc9910d016b7?w=400&h=500&fit=crop',
+    sellerName: 'Riya S.',
+    brand: 'H&M',
+    size: '26',
+    description: 'Light blue stonewash tapered mom jeans. Authentic vintage feel with slight softening around knees.',
+    views: 130,
+    likes: 52
+  },
+  {
+    title: 'Mango Pleated Satin Midi Skirt',
+    price: 950,
+    originalPrice: 2990,
+    condition: 'Like New',
+    category: "Women's/Men's Bottoms",
+    tags: ['pleated', 'satin', 'mango', 'midi-skirt', 'elegant', 'party', 'jaipur'],
+    image: 'https://images.unsplash.com/photo-1584370848010-d7fe6bc767ec?w=400&h=500&fit=crop',
+    sellerName: 'Sneha P.',
+    brand: 'Mango',
+    size: 'S',
+    description: 'Champagne sunburst pleated satin skirt with elasticated waist. Elegant motion when walking, zero stains.',
+    views: 142,
+    likes: 61
+  },
+  {
+    title: "Levi's High-Rise Distressed Denim Shorts",
+    price: 650,
+    originalPrice: 2199,
+    condition: 'Good',
+    category: "Women's/Men's Bottoms",
+    tags: ['shorts', 'distressed', 'levi\'s', 'denim', 'summer', 'casual', 'streetwear'],
+    image: 'https://images.unsplash.com/photo-1485230895905-ec40ba36b9bc?w=400&h=500&fit=crop',
+    sellerName: 'Tanvi D.',
+    brand: "Levi's",
+    size: '28',
+    description: 'Cut-off vintage denim shorts with raw frayed hem and authentic distressing. Sturdy rigid denim.',
+    views: 115,
+    likes: 43
+  },
+  {
+    title: 'Uniqlo Smart Ankle Pants Trousers',
+    price: 850,
+    originalPrice: 2990,
+    condition: 'Like New',
+    category: "Women's/Men's Bottoms",
+    tags: ['ankle-pants', '2-way-stretch', 'uniqlo', 'formal', 'japan', 'minimalist', 'office'],
+    image: 'https://images.unsplash.com/photo-1576995853123-5a10305d93c0?w=400&h=500&fit=crop',
+    sellerName: 'Neil J.',
+    brand: 'Uniqlo',
+    size: '32',
+    description: 'Charcoal grey 2-way stretch tailored ankle pants with hidden elastic waist. Wrinkle-resistant and spotless.',
+    views: 158,
+    likes: 57
+  },
+  {
+    title: 'ONLY A-Line Buttoned Denim Mini Skirt',
+    price: 500,
+    originalPrice: 1699,
+    condition: 'Good',
+    category: "Women's/Men's Bottoms",
+    tags: ['denim-skirt', 'a-line', 'only', 'y2k', 'summer', 'casual', 'streetwear'],
+    image: 'https://images.unsplash.com/photo-1551854838-212c50b4c184?w=400&h=500&fit=crop',
+    sellerName: 'Kavya N.',
+    brand: 'ONLY',
+    size: 'XS',
+    description: 'Mid-rise dark blue denim mini skirt with front metal buttons. Very minor fading near waistband, looks chic.',
+    views: 88,
+    likes: 31
+  },
+  {
+    title: 'Nike Club Fleece Cargo Joggers',
+    price: 980,
+    originalPrice: 2795,
+    condition: 'Good',
+    category: "Women's/Men's Bottoms",
+    tags: ['cargo', 'joggers', 'nike', 'fleece', 'athleisure', 'winter', 'streetwear'],
+    image: 'https://images.unsplash.com/photo-1509551388413-e18d0ac5d495?w=400&h=500&fit=crop',
+    sellerName: 'Ishaan G.',
+    brand: 'Nike',
+    size: 'L',
+    description: 'Heather grey brushed fleece cargo sweatpants with ribbed cuffs and utility pockets. Lightly worn and super soft.',
+    views: 170,
+    likes: 64
+  },
+  {
+    title: 'Zara Relaxed Boyfriend Fit Jeans',
+    price: 1200,
+    originalPrice: 3590,
+    condition: 'New with tags',
+    category: "Women's/Men's Bottoms",
+    tags: ['boyfriend-jeans', 'relaxed', 'zara', 'denim', 'casual', 'streetwear', 'y2k'],
+    image: 'https://images.unsplash.com/photo-1475178626620-a4d074967452?w=400&h=500&fit=crop',
+    sellerName: 'Ananya G.',
+    brand: 'Zara',
+    size: '30',
+    description: 'Slouchy mid-rise boyfriend denim with raw cuffs. Never worn, comes with brand tag attached.',
+    views: 144,
+    likes: 56
+  },
+  {
+    title: 'FabIndia Indigo Cotton Tiered Maxi Skirt',
+    price: 890,
+    originalPrice: 2490,
+    condition: 'New with tags',
+    category: "Women's/Men's Bottoms",
+    tags: ['maxi-skirt', 'indigo', 'fabindia', 'cotton', 'jaipur', 'boho', 'ethnic'],
+    image: 'https://images.unsplash.com/photo-1582552938357-32b906df40cb?w=400&h=500&fit=crop',
+    sellerName: 'Sunita B.',
+    brand: 'FabIndia',
+    size: 'Free',
+    description: 'Flared tiered bohemian skirt crafted with genuine hand-block indigo print. Unused with original shop tag.',
+    views: 136,
+    likes: 59
+  }
 ];
+

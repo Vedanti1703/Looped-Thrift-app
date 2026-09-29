@@ -278,10 +278,72 @@ exports.verifyPayment = async (req, res) => {
       console.warn('Could not dispatch in-app notification:', notifErr.message);
     }
 
-    // 5. Clear the authenticated user's cart
+    // 5. Calculate carbon savings and update buyer sustainability stats
+    try {
+      const { calculateSavings, calculateSustainabilityTier } = require('../utils/carbonCalculator');
+      let totalCo2 = 0;
+      let totalWater = 0;
+      let totalKm = 0;
+      let totalTreeDays = 0;
+
+      if (order.items && order.items.length > 0) {
+        order.items.forEach(item => {
+          const savings = calculateSavings(item.category || "Women's Tops", item.condition || 'Good');
+          totalCo2 += savings.co2SavedKg;
+          totalWater += savings.waterSavedLitres;
+          totalKm += savings.equivalentKmNotDriven;
+          totalTreeDays += savings.treeDaysEquivalent;
+        });
+      } else {
+        const savings = calculateSavings("Women's Tops", 'Good');
+        totalCo2 = savings.co2SavedKg;
+        totalWater = savings.waterSavedLitres;
+        totalKm = savings.equivalentKmNotDriven;
+        totalTreeDays = savings.treeDaysEquivalent;
+      }
+
+      order.carbonSavings = {
+        co2SavedKg: parseFloat(totalCo2.toFixed(2)),
+        waterSavedLitres: parseFloat(totalWater.toFixed(0)),
+        equivalentKmNotDriven: parseFloat(totalKm.toFixed(1)),
+        treeDaysEquivalent: parseFloat(totalTreeDays.toFixed(1))
+      };
+      await order.save();
+
+      const buyerUser = await User.findById(order.userId || order.buyerId);
+      if (buyerUser) {
+        if (!buyerUser.sustainabilityStats) {
+          buyerUser.sustainabilityStats = {
+            totalCo2SavedKg: 0,
+            totalWaterSavedLitres: 0,
+            totalItemsCirculated: 0,
+            sustainabilityScore: 0,
+            tier: 'Seedling'
+          };
+        }
+        buyerUser.sustainabilityStats.totalCo2SavedKg = parseFloat(
+          ((buyerUser.sustainabilityStats.totalCo2SavedKg || 0) + totalCo2).toFixed(2)
+        );
+        buyerUser.sustainabilityStats.totalWaterSavedLitres = parseFloat(
+          ((buyerUser.sustainabilityStats.totalWaterSavedLitres || 0) + totalWater).toFixed(0)
+        );
+        buyerUser.sustainabilityStats.totalItemsCirculated =
+          (buyerUser.sustainabilityStats.totalItemsCirculated || 0) + (order.items?.length || 1);
+
+        const tierInfo = calculateSustainabilityTier(buyerUser.sustainabilityStats.totalCo2SavedKg);
+        buyerUser.sustainabilityStats.tier = tierInfo.tier;
+        buyerUser.sustainabilityStats.sustainabilityScore = tierInfo.score;
+        await buyerUser.save();
+      }
+    } catch (carbonErr) {
+      console.warn('Could not compute carbon savings for order:', carbonErr.message);
+    }
+
+    // 6. Clear the authenticated user's cart
     if (req.userId) {
       await Cart.findOneAndUpdate({ userId: req.userId }, { items: [] });
     }
+
 
     res.json({
       success: true,

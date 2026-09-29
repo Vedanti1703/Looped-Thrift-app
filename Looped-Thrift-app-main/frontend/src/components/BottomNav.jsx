@@ -1,96 +1,3 @@
-// import { useNavigate, useLocation } from 'react-router-dom'
-// import { useCart } from '../context/CartContext'
-
-// const NAV = [
-//   { path: '/swipe',    icon: SwipeIcon,   label: 'Swipe'    },
-//   { path: '/discover', icon: DiscoverIcon, label: 'Discover' },
-//   { path: '/',         icon: HomeIcon,     label: 'Home',   center: true },
-//   { path: '/cart',     icon: CartIcon,     label: 'Cart'    },
-//   { path: '/chat',     icon: ChatIcon,     label: 'Chat'    },
-// ]
-
-// export default function BottomNav() {
-//   const navigate  = useNavigate()
-//   const { pathname } = useLocation()
-//   const { cartItems } = useCart()
-
-//   return (
-//     <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-pink-100 bottom-nav z-50">
-//       <div className="flex justify-around items-center h-16 max-w-lg mx-auto px-2">
-//         {NAV.map(({ path, icon: Icon, label, center }) => {
-//           const active = pathname === path
-//           return (
-//             <button
-//               key={path}
-//               onClick={() => navigate(path)}
-//               className={`flex flex-col items-center gap-0.5 flex-1 py-1 relative
-//                 ${center
-//                   ? 'bg-pink-500 rounded-2xl mx-1 py-3 -mt-5 shadow-lg shadow-pink-200'
-//                   : ''}`}
-//             >
-//               <Icon
-//                 size={center ? 22 : 20}
-//                 color={center ? 'white' : active ? '#ec4899' : '#9ca3af'}
-//               />
-//               {!center && (
-//                 <span className={`text-[10px] font-medium ${active ? 'text-pink-500' : 'text-gray-400'}`}>
-//                   {label}
-//                 </span>
-//               )}
-//               {/* Cart badge */}
-//               {path === '/cart' && cartItems.length > 0 && (
-//                 <span className="absolute top-0 right-2 bg-pink-500 text-white text-[9px] font-bold
-//                                  w-4 h-4 rounded-full flex items-center justify-center">
-//                   {cartItems.length}
-//                 </span>
-//               )}
-//             </button>
-//           )
-//         })}
-//       </div>
-//     </nav>
-//   )
-// }
-
-// /* ── Inline SVG Icons ── */
-// function HomeIcon({ size, color }) {
-//   return (
-//     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-//       <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"/>
-//       <path d="M9 21V12h6v9"/>
-//     </svg>
-//   )
-// }
-// function SwipeIcon({ size, color }) {
-//   return (
-//     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-//       <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-//     </svg>
-//   )
-// }
-// function DiscoverIcon({ size, color }) {
-//   return (
-//     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-//       <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-//     </svg>
-//   )
-// }
-// function CartIcon({ size, color }) {
-//   return (
-//     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-//       <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/>
-//     </svg>
-//   )
-// }
-// function ChatIcon({ size, color }) {
-//   return (
-//     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-//       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-//     </svg>
-//   )
-// }
-
-
 import { useNavigate, useLocation } from 'react-router-dom'
 
 // 5 nav items — Rent and Auction navigate to their coming-soon pages
@@ -107,8 +14,16 @@ export default function BottomNav() {
   const { pathname } = useLocation()
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-pink-100 z-50"
-         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+    <nav
+      className="fixed bottom-0 left-0 right-0 z-50 bottom-nav"
+      style={{
+        paddingBottom: 'env(safe-area-inset-bottom)',
+        backgroundColor: 'rgba(251, 244, 236, 0.96)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        borderTop: '1px solid var(--pink-cotton)'
+      }}
+    >
       <div className="flex justify-around items-center h-16 max-w-lg mx-auto px-1">
         {NAV.map(({ path, icon: Icon, label, center }) => {
           const active = pathname === path
@@ -116,18 +31,32 @@ export default function BottomNav() {
             <button
               key={path}
               onClick={() => navigate(path)}
-              className={`flex flex-col items-center justify-center gap-0.5 flex-1 py-1 transition-all
-                ${center
-                  ? 'bg-pink-500 rounded-2xl mx-1 py-3 -mt-5 shadow-lg shadow-pink-200'
-                  : ''}`}
+              className={`flex flex-col items-center justify-center gap-0.5 flex-1 py-1 transition-all ${
+                center ? 'rounded-2xl mx-1 py-3 -mt-5 shadow-lg' : ''
+              }`}
+              style={
+                center
+                  ? {
+                      background: 'linear-gradient(135deg, var(--pink-hot), var(--pink-deep))',
+                      boxShadow: '0 8px 20px -4px rgba(201, 78, 130, 0.5)',
+                      borderRadius: '18px'
+                    }
+                  : {}
+              }
             >
               <Icon
                 size={center ? 22 : 20}
-                color={center ? 'white' : active ? '#ec4899' : '#9ca3af'}
+                color={center ? '#ffffff' : active ? 'var(--pink-deep)' : 'var(--pink-rose)'}
               />
               {!center && (
-                <span className={`text-[10px] font-medium leading-none
-                  ${active ? 'text-pink-500' : 'text-gray-400'}`}>
+                <span
+                  className="text-[10.5px] leading-none mt-0.5"
+                  style={{
+                    color: active ? 'var(--pink-deep)' : 'var(--pink-rose)',
+                    fontFamily: "'Fredoka', sans-serif",
+                    fontWeight: active ? 600 : 500
+                  }}
+                >
                   {label}
                 </span>
               )}
@@ -161,8 +90,7 @@ function DiscoverIcon({ size, color }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
          stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="11" cy="11" r="8"/>
-      <path d="m21 21-4.35-4.35"/>
+      <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
     </svg>
   )
 }
