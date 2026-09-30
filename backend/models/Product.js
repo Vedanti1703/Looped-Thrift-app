@@ -1,0 +1,56 @@
+const mongoose = require('mongoose');
+
+const productSchema = new mongoose.Schema({
+  title: { type: String, required: true },
+  description: { type: String, default: '' },
+  price: { type: Number, required: true },
+  originalPrice: { type: Number },
+  condition: {
+    type: String,
+    enum: ['New with tags', 'Like New', 'Good', 'Fair', 'Well Loved'],
+    required: true
+  },
+  category: { type: String, required: true },
+  // tags drive all recommendations — e.g. ["japan", "winter", "streetwear"]
+  tags: [{ type: String }],
+  image: { type: String, required: true },
+  images: [{ type: String }],
+  sellerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  sellerName: { type: String, default: 'Anonymous' },
+  views: { type: Number, default: 0 },
+  likes: { type: Number, default: 0 },
+  size: { type: String, default: '' },
+  brand: { type: String, default: '' },
+  avgRating: { type: Number, default: 0 },
+  reviewCount: { type: Number, default: 0 },
+  listingType: { type: String, enum: ['sell', 'rent', 'both'], default: 'sell' },
+  rentPricePerDay: { type: Number },
+  securityDeposit: { type: Number },
+  rentAvailable: { type: Boolean, default: true },
+  occasion: { type: String, default: '' }, // Wedding, Party, Formal, Festive, etc.
+  dryCleaningIncluded: { type: Boolean, default: true },
+  conditionImages: [{ type: String }],
+  conditionNotes: { type: String, default: '' },
+  embedding: { type: [Number], default: undefined },
+  imageHash: { type: String, index: true }, // 64-bit perceptual hash (pHash)
+  priceAnomaly: {
+    isAnomaly: { type: Boolean, default: false },
+    anomalyScore: { type: Number, default: 0 },
+    anomalyType: { type: String, default: 'normal' },
+    predictedPrice: { type: Number },
+    priceRatio: { type: Number },
+    severity: { type: String, default: 'none' },
+    reason: { type: String, default: '' }
+  },
+  itemMeasurements: {
+    chest: Number,
+    waist: Number,
+    hips: Number,
+    length: Number,
+    shoulder: Number,
+    inseam: Number,
+    footLength: Number
+  }
+}, { timestamps: true });
+
+module.exports = mongoose.model('Product', productSchema);

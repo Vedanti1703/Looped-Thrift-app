@@ -1,0 +1,28 @@
+{
+  "r2_score": 0.9747,
+  "mae_inr": 594.8,
+  "cv_r2_mean": 0.9754,
+  "cv_r2_std": 0.0027,
+  "training_rows": 6000,
+  "test_rows": 1200,
+  "feature_cols": [
+    "brand_tier",
+    "condition_score",
+    "log_orig",
+    "sqrt_orig",
+    "orig_filled",
+    "cat_encoded",
+    "tier_x_condition"
+  ],
+  "n_estimators": 300,
+  "algorithm": "Random Forest Regressor",
+  "feature_importance": {
+    "orig_filled": 0.2497,
+    "log_orig": 0.2377,
+    "sqrt_orig": 0.2112,
+    "brand_tier": 0.1159,
+    "tier_x_condition": 0.1142,
+    "condition_score": 0.065,
+    "cat_encoded": 0.0062
+  }
+}
