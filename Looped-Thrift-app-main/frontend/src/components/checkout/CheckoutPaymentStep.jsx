@@ -4,12 +4,13 @@ import Spinner from '../Spinner'
 
 // Build a real UPI deep-link QR code image URL using free qrserver.com API
 function buildUpiQrUrl(amount, orderId) {
-  const vpa = import.meta.env.VITE_MERCHANT_UPI_VPA || 'looped@razorpay'
-  const name = import.meta.env.VITE_MERCHANT_NAME || 'Looped+Thrift+Marketplace'
+  const vpa = import.meta.env.VITE_MERCHANT_UPI_VPA || 'aditishirke34@okicici'
+  const encodedName = import.meta.env.VITE_MERCHANT_NAME || 'Aditi+Shirke'
+  const displayName = decodeURIComponent(encodedName.replace(/\+/g, ' '))
   const tn = encodeURIComponent(`Order #${orderId}`)
-  const upiLink = `upi://pay?pa=${encodeURIComponent(vpa)}&pn=${name}&am=${amount}&cu=INR&tn=${tn}`
-  const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=12&data=${encodeURIComponent(upiLink)}`
-  return { qrApiUrl, upiLink }
+  const upiLink = `upi://pay?pa=${encodeURIComponent(vpa)}&pn=${encodedName}&am=${amount}&cu=INR&tn=${tn}`
+  const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=10&color=000000&bgcolor=ffffff&data=${encodeURIComponent(upiLink)}`
+  return { qrApiUrl, upiLink, vpa, displayName }
 }
 
 const QR_DURATION_SECS = 600 // 10 minutes
@@ -87,8 +88,8 @@ export default function CheckoutPaymentStep({
   const handleShowQr = () => {
     setQrLoading(true)
     qrRefId.current = `QR-${Date.now()}`
-    const { qrApiUrl, upiLink } = buildUpiQrUrl(total, qrRefId.current)
-    setQrUrls({ qrApiUrl, upiLink })
+    const { qrApiUrl, upiLink, vpa, displayName } = buildUpiQrUrl(total, qrRefId.current)
+    setQrUrls({ qrApiUrl, upiLink, vpa, displayName })
     startCountdown()
     setShowQrView(true)
     setQrLoading(false)
@@ -149,7 +150,7 @@ export default function CheckoutPaymentStep({
           </div>
 
           {/* QR Body */}
-          <div className="px-4 py-4 flex flex-col items-center space-y-3">
+          <div className="px-4 py-5 flex flex-col items-center space-y-3">
             {qrExpired ? (
               /* Expired state */
               <div className="flex flex-col items-center py-6 space-y-3 text-center">
@@ -170,24 +171,35 @@ export default function CheckoutPaymentStep({
               </div>
             ) : (
               <>
-                {/* QR Code image */}
-                <div className="relative">
-                  <div className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100">
-                    <img
-                      src={qrUrls?.qrApiUrl}
-                      alt="UPI QR Code — Scan to pay"
-                      className="w-52 h-52 sm:w-56 sm:h-56 object-contain block"
-                      onLoad={() => setQrLoading(false)}
-                    />
+                {/* Merchant name + avatar — matches Google Pay QR style */}
+                <div className="flex items-center gap-2.5 mb-1">
+                  <div className="w-9 h-9 rounded-full bg-rose-700 flex items-center justify-center text-white font-bold text-base flex-shrink-0">
+                    {(qrUrls?.displayName || 'A')[0].toUpperCase()}
                   </div>
-                  {/* Looped badge on QR */}
-                  <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-gradient-to-r from-pink-500 to-rose-500 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-sm whitespace-nowrap">
-                    <span>🛍️</span> Looped Thrift
-                  </div>
+                  <span className="font-semibold text-gray-800 text-sm">{qrUrls?.displayName || 'Aditi Shirke'}</span>
                 </div>
 
-                {/* UPI App logos */}
-                <div className="flex items-center gap-3 mt-4 pt-2">
+                {/* QR Code image — white card */}
+                <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-150">
+                  <img
+                    src={qrUrls?.qrApiUrl}
+                    alt="UPI QR Code — Scan to pay"
+                    className="w-52 h-52 sm:w-56 sm:h-56 object-contain block"
+                    onLoad={() => setQrLoading(false)}
+                  />
+                  {/* UPI ID below QR inside card */}
+                  <p className="text-center text-[11px] text-gray-500 mt-3 font-medium">
+                    UPI ID: <span className="font-bold text-gray-700">{qrUrls?.vpa || 'aditishirke34@okicici'}</span>
+                  </p>
+                </div>
+
+                {/* 'Scan to pay with any UPI app' — matches Google Pay style */}
+                <p className="text-[12px] text-gray-500 text-center mt-1">
+                  Scan to pay with any UPI app
+                </p>
+
+                {/* UPI App logo strip */}
+                <div className="flex items-center gap-3">
                   {['GPay', 'PhonePe', 'Paytm', 'BHIM'].map((app) => (
                     <div key={app} className="flex flex-col items-center gap-0.5">
                       <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-base">
@@ -208,12 +220,6 @@ export default function CheckoutPaymentStep({
                     {formatCountdown(timeLeft)}
                   </span>
                 </div>
-
-                {/* Instruction text */}
-                <p className="text-[11px] text-gray-500 text-center leading-relaxed">
-                  Open <strong>Google Pay, PhonePe, Paytm</strong> or any UPI app.<br />
-                  Tap <em>Scan QR</em> and point your camera at the code above.
-                </p>
               </>
             )}
           </div>
