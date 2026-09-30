@@ -462,3 +462,406 @@ exports.getRazorpayKey = (req, res) => {
     keyId: (process.env.RAZORPAY_KEY_ID || '').trim()
   });
 };
+
+/**
+ * POST /payment/upi-qr or /api/payments/upi-qr
+ * Creates or reuses a single-use Razorpay UPI QR code for the user's order.
+ */
+exports.createUpiQr = async (req, res) => {
+  try {
+    const isQrEnabled = process.env.ENABLE_INAPP_UPI_QR !== 'false';
+    if (!isQrEnabled) {
+      console.warn('In-app UPI QR is disabled via ENABLE_INAPP_UPI_QR=false');
+      return res.status(200).json({
+        success: false,
+        qrDisabled: true,
+        message: 'Razorpay QR Codes not enabled on this account'
+      });
+    }
+
+    const { orderId, deliveryAddress } = req.body;
+
+    let order = null;
+    if (orderId) {
+      order = await Order.findOne({
+        orderId,
+        userId: req.userId,
+        paymentStatus: { $in: ['PENDING', 'pending'] }
+      });
+    }
+
+    // If orderId not provided or not found, check for an existing pending order for this user
+    if (!order) {
+      order = await Order.findOne({
+        userId: req.userId,
+        paymentStatus: { $in: ['PENDING', 'pending'] }
+      }).sort({ createdAt: -1 });
+    }
+
+    // If still no pending order, create one using cart + deliveryAddress
+    if (!order) {
+      if (!deliveryAddress || !deliveryAddress.name || !deliveryAddress.phone || !deliveryAddress.address) {
+        return res.status(400).json({
+          success: false,
+          message: 'Delivery details required to create order.'
+        });
+      }
+
+      const cart = await Cart.findOne({ userId: req.userId });
+      if (!cart || !cart.items || cart.items.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Your cart is empty.'
+        });
+      }
+
+      const productIds = cart.items.map(item => item.productId).filter(Boolean);
+      const dbProducts = await Product.find({ _id: { $in: productIds } });
+      const productMap = new Map(dbProducts.map(p => [p._id.toString(), p]));
+
+      let calculatedSubtotal = 0;
+      const verifiedOrderItems = [];
+      const buyer = await User.findById(req.userId);
+
+      for (const item of cart.items) {
+        const pid = item.productId?.toString();
+        const product = productMap.get(pid);
+        if (!product) continue;
+        const itemPrice = typeof product.price === 'number' ? product.price : (item.price || 0);
+        const quantity = item.quantity || 1;
+        calculatedSubtotal += itemPrice * quantity;
+        verifiedOrderItems.push({
+          productId: product._id,
+          title: product.title,
+          price: itemPrice,
+          quantity,
+          image: product.image || item.image || '',
+          condition: product.condition || item.condition || '',
+          size: product.size || item.size || '',
+          sellerId: product.sellerId || null,
+          sellerName: product.sellerName || 'Seller'
+        });
+      }
+
+      if (calculatedSubtotal <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid order total.'
+        });
+      }
+
+      const calculatedTotal = calculatedSubtotal;
+      const amountInPaise = Math.round(calculatedTotal * 100);
+      const razorpay = getRazorpayInstance();
+      const generatedOrderId = `LOOPED-ORD-${Date.now().toString().slice(-6)}${Math.floor(100 + Math.random() * 900)}`;
+
+      let razorpayOrder;
+      try {
+        razorpayOrder = await razorpay.orders.create({
+          amount: amountInPaise,
+          currency: 'INR',
+          receipt: generatedOrderId,
+          notes: {
+            userId: req.userId.toString(),
+            customerName: deliveryAddress.name.trim(),
+            customerPhone: deliveryAddress.phone.trim()
+          }
+        });
+      } catch (rzpErr) {
+        console.error('Razorpay Orders API error:', rzpErr);
+        return res.status(500).json({
+          success: false,
+          message: rzpErr.error?.description || rzpErr.message || 'Failed to initialize payment gateway order'
+        });
+      }
+
+      const primarySeller = verifiedOrderItems.find(i => i.sellerId) || {};
+      order = await Order.create({
+        orderId: generatedOrderId,
+        userId: req.userId,
+        buyerId: req.userId,
+        buyerName: (deliveryAddress.name || buyer?.name || '').trim(),
+        buyerEmail: buyer?.email || '',
+        sellerId: primarySeller.sellerId || null,
+        sellerName: primarySeller.sellerName || 'Seller',
+        name: deliveryAddress.name.trim(),
+        phone: deliveryAddress.phone.trim(),
+        productName: verifiedOrderItems.map(i => i.title).join(', '),
+        items: verifiedOrderItems,
+        address: deliveryAddress.address.trim(),
+        city: (deliveryAddress.city || '').trim(),
+        state: (deliveryAddress.state || '').trim(),
+        pincode: (deliveryAddress.pincode || '').trim(),
+        totalAmount: calculatedTotal,
+        currency: 'INR',
+        razorpayOrderId: razorpayOrder.id,
+        paymentStatus: 'PENDING',
+        orderStatus: 'PENDING',
+        status: 'Pending',
+        payoutStatus: 'ON_HOLD',
+        timeline: [{
+          status: 'PENDING',
+          title: 'Order Created',
+          description: `Order initialized for INR ${calculatedTotal}. Awaiting payment.`,
+          actorRole: 'buyer',
+          timestamp: new Date()
+        }]
+      });
+    }
+
+    // Now call Razorpay QR Codes API
+    const razorpay = getRazorpayInstance();
+    const amountInPaise = Math.round(order.totalAmount * 100);
+    const closeBy = Math.floor(Date.now() / 1000) + 10 * 60; // 10 minutes
+
+    try {
+      const qrResponse = await razorpay.qrCode.create({
+        type: 'upi_qr',
+        name: 'Looped',
+        usage: 'single_use',
+        fixed_amount: true,
+        payment_amount: amountInPaise,
+        description: `Order #${order.orderId}`,
+        close_by: closeBy,
+        notes: {
+          orderId: order.orderId,
+          userId: req.userId.toString()
+        }
+      });
+
+      order.qrCodeId = qrResponse.id;
+      await order.save();
+
+      return res.json({
+        success: true,
+        qrId: qrResponse.id,
+        imageUrl: qrResponse.image_url,
+        expiresAt: closeBy * 1000,
+        orderId: order.orderId,
+        amount: order.totalAmount
+      });
+    } catch (qrErr) {
+      console.warn('Razorpay QR Codes not enabled on this account:', qrErr.error?.description || qrErr.message || qrErr);
+      return res.status(200).json({
+        success: false,
+        qrDisabled: true,
+        message: 'Razorpay QR Codes not enabled on this account'
+      });
+    }
+  } catch (err) {
+    console.error('Error in createUpiQr:', err);
+    return res.status(500).json({
+      success: false,
+      message: err.message || 'Internal server error creating UPI QR'
+    });
+  }
+};
+
+/**
+ * GET /payment/upi-qr/:qrId/status or /api/payments/upi-qr/:qrId/status
+ * Polls payment status for a specific UPI QR code.
+ */
+exports.getUpiQrStatus = async (req, res) => {
+  try {
+    const { qrId } = req.params;
+    if (!qrId) {
+      return res.status(400).json({ success: false, message: 'QR ID is required.' });
+    }
+
+    let order = await Order.findOne({ qrCodeId: qrId });
+    if (!order && req.query.orderId) {
+      order = await Order.findOne({ orderId: req.query.orderId });
+    }
+
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'Order for this QR code was not found.' });
+    }
+
+    // If already marked paid in DB, return immediately (idempotent)
+    if (order.paymentStatus === 'PAID' || order.paymentStatus === 'paid') {
+      return res.json({
+        success: true,
+        status: 'paid',
+        orderId: order.orderId
+      });
+    }
+
+    // Verify status directly from Razorpay
+    try {
+      const razorpay = getRazorpayInstance();
+      const qrDetails = await razorpay.qrCode.fetch(qrId);
+
+      const payments = await razorpay.qrCode.fetchAllPayments(qrId);
+      const successfulPayment = payments?.items?.find(p => p.status === 'captured' || p.status === 'authorized');
+
+      if (successfulPayment || (qrDetails.status === 'closed' && qrDetails.payments_amount_received > 0)) {
+        order.paymentStatus = 'PAID';
+        order.orderStatus = 'CONFIRMED';
+        order.status = 'CONFIRMED';
+        order.payoutStatus = 'ON_HOLD';
+        order.returnStatus = 'NONE';
+        if (successfulPayment?.id) {
+          order.razorpayPaymentId = successfulPayment.id;
+        }
+
+        order.timeline.push({
+          status: 'CONFIRMED',
+          title: 'Payment Received via UPI QR',
+          description: `UPI QR payment received. Payment ID: ${successfulPayment?.id || 'QR_CAPTURED'}`,
+          actorRole: 'system',
+          timestamp: new Date()
+        });
+
+        await order.save();
+
+        // Clear user cart
+        await Cart.findOneAndUpdate({ userId: order.userId }, { items: [] });
+
+        return res.json({
+          success: true,
+          status: 'paid',
+          orderId: order.orderId
+        });
+      }
+
+      // Check if QR expired or closed without payment
+      const isExpired = qrDetails.status === 'closed' || (qrDetails.close_by && Date.now() / 1000 > qrDetails.close_by);
+      if (isExpired) {
+        return res.json({
+          success: true,
+          status: 'expired',
+          orderId: order.orderId
+        });
+      }
+
+      return res.json({
+        success: true,
+        status: 'pending',
+        orderId: order.orderId
+      });
+    } catch (rzpErr) {
+      // In case qrCode fetch fails (e.g. simulated test QR), check current DB status
+      return res.json({
+        success: true,
+        status: (order.paymentStatus === 'PAID' || order.paymentStatus === 'paid') ? 'paid' : 'pending',
+        orderId: order.orderId
+      });
+    }
+  } catch (err) {
+    console.error('Error checking UPI QR status:', err);
+    return res.status(500).json({
+      success: false,
+      message: err.message || 'Internal server error checking QR status'
+    });
+  }
+};
+
+/**
+ * POST /payment/webhook or /api/payments/webhook
+ * Handles Razorpay webhooks (qr_code.credited, payment.captured, order.paid, payment.failed)
+ * Verifies webhook signature against raw body and RAZORPAY_WEBHOOK_SECRET.
+ */
+exports.handleRazorpayWebhook = async (req, res) => {
+  try {
+    const signature = req.headers['x-razorpay-signature'];
+    const webhookSecret = (process.env.RAZORPAY_WEBHOOK_SECRET || '').trim();
+
+    if (!signature || !webhookSecret) {
+      return res.status(400).json({
+        success: false,
+        message: 'Webhook signature or secret missing.'
+      });
+    }
+
+    const payload = req.rawBody ? req.rawBody.toString() : JSON.stringify(req.body);
+    const expectedSignature = crypto
+      .createHmac('sha256', webhookSecret)
+      .update(payload)
+      .digest('hex');
+
+    if (expectedSignature !== signature) {
+      console.warn('❌ Webhook signature verification failed');
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid webhook signature.'
+      });
+    }
+
+    const event = req.body?.event;
+    const eventPayload = req.body?.payload;
+
+    if (event === 'qr_code.credited' || event === 'payment.captured' || event === 'order.paid') {
+      const paymentEntity = eventPayload?.payment?.entity;
+      const qrEntity = eventPayload?.qr_code?.entity;
+      const orderEntity = eventPayload?.order?.entity;
+
+      const razorpayOrderId = paymentEntity?.order_id || orderEntity?.id;
+      const qrId = qrEntity?.id || paymentEntity?.notes?.qrId;
+      const customOrderId = paymentEntity?.notes?.orderId || qrEntity?.notes?.orderId;
+      const paymentId = paymentEntity?.id;
+
+      const query = {
+        $or: [
+          ...(razorpayOrderId ? [{ razorpayOrderId }] : []),
+          ...(qrId ? [{ qrCodeId: qrId }] : []),
+          ...(customOrderId ? [{ orderId: customOrderId }] : [])
+        ]
+      };
+
+      const order = await Order.findOne(query);
+      if (order) {
+        if (order.paymentStatus !== 'PAID' && order.paymentStatus !== 'paid') {
+          order.paymentStatus = 'PAID';
+          order.orderStatus = 'CONFIRMED';
+          order.status = 'CONFIRMED';
+          order.payoutStatus = 'ON_HOLD';
+          order.returnStatus = 'NONE';
+          if (paymentId) order.razorpayPaymentId = paymentId;
+
+          order.timeline.push({
+            status: 'CONFIRMED',
+            title: `Payment Confirmed via Webhook (${event})`,
+            description: `Payment ID: ${paymentId || 'N/A'}. Event: ${event}`,
+            actorRole: 'system',
+            timestamp: new Date()
+          });
+
+          await order.save();
+
+          // Clear user cart
+          await Cart.findOneAndUpdate({ userId: order.userId }, { items: [] });
+          console.log(`✅ Order ${order.orderId} marked PAID via webhook (${event})`);
+        }
+      }
+    } else if (event === 'payment.failed') {
+      const paymentEntity = eventPayload?.payment?.entity;
+      const razorpayOrderId = paymentEntity?.order_id;
+      const customOrderId = paymentEntity?.notes?.orderId;
+
+      const order = await Order.findOne({
+        $or: [
+          ...(razorpayOrderId ? [{ razorpayOrderId }] : []),
+          ...(customOrderId ? [{ orderId: customOrderId }] : [])
+        ]
+      });
+
+      if (order && order.paymentStatus === 'PENDING') {
+        order.paymentStatus = 'FAILED';
+        order.timeline.push({
+          status: 'FAILED',
+          title: 'Payment Failed via Webhook',
+          description: paymentEntity?.error_description || 'Payment was unsuccessful',
+          actorRole: 'system',
+          timestamp: new Date()
+        });
+        await order.save();
+      }
+    }
+
+    return res.status(200).json({ status: 'ok' });
+  } catch (err) {
+    console.error('Webhook processing error:', err);
+    return res.status(500).json({ success: false, message: 'Internal server error in webhook handler' });
+  }
+};
+

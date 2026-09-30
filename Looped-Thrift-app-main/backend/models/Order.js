@@ -51,6 +51,7 @@ const orderSchema = new mongoose.Schema({
   razorpaySignature: { type: String, default: '' },
   razorpayTransferId: { type: String, default: '' },
   razorpayRefundId: { type: String, default: '' },
+  qrCodeId: { type: String, default: '' },
 
   // State Management Enums
   paymentStatus: {

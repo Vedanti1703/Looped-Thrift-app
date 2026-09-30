@@ -28,6 +28,7 @@ app.use('/upload', require('./routes/upload'))   // Cloudinary image uploads
 app.use('/reviews', require('./routes/reviews'))
 app.use('/rental', require('./routes/rental'))
 app.use('/payment', require('./routes/payment'))
+app.use('/api/payments', require('./routes/payment'))
 app.use('/collections', require('./routes/collections'))
 app.use('/protection', require('./routes/orderProtection'))
 app.use('/escrow', require('./routes/escrow'))

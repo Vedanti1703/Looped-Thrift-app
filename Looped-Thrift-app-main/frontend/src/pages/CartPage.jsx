@@ -71,7 +71,78 @@ export default function CartPage() {
     if (checkoutError) setCheckoutError('')
   }
 
-  const handlePayNow = async () => {
+  const getMethodConfig = (method) => {
+    switch (method) {
+      case 'upi':
+        return {
+          config: {
+            display: {
+              blocks: {
+                upi: {
+                  name: 'Pay via UPI',
+                  instruments: [{ method: 'upi' }]
+                }
+              },
+              sequence: ['block.upi'],
+              preferences: { show_default_blocks: false }
+            }
+          },
+          prefillMethod: 'upi'
+        }
+      case 'card':
+        return {
+          config: {
+            display: {
+              blocks: {
+                card: {
+                  name: 'Credit / Debit Card',
+                  instruments: [{ method: 'card' }]
+                }
+              },
+              sequence: ['block.card'],
+              preferences: { show_default_blocks: false }
+            }
+          },
+          prefillMethod: 'card'
+        }
+      case 'netbanking':
+        return {
+          config: {
+            display: {
+              blocks: {
+                netbanking: {
+                  name: 'Net Banking',
+                  instruments: [{ method: 'netbanking' }]
+                }
+              },
+              sequence: ['block.netbanking'],
+              preferences: { show_default_blocks: false }
+            }
+          },
+          prefillMethod: 'netbanking'
+        }
+      case 'wallet':
+        return {
+          config: {
+            display: {
+              blocks: {
+                wallet: {
+                  name: 'Wallets & More',
+                  instruments: [{ method: 'wallet' }]
+                }
+              },
+              sequence: ['block.wallet'],
+              preferences: { show_default_blocks: false }
+            }
+          },
+          prefillMethod: 'wallet'
+        }
+      default:
+        return null
+    }
+  }
+
+  const handlePayNow = async (selectedMethod = 'upi') => {
     setCheckoutError('')
     setNotice('')
 
@@ -94,6 +165,8 @@ export default function CartPage() {
       if (!orderData || !orderData.success) {
         throw new Error(orderData?.message || 'Failed to initialize payment order.')
       }
+
+      const methodConfig = getMethodConfig(selectedMethod)
 
       const options = {
         key: orderData.keyId,
@@ -134,7 +207,8 @@ export default function CartPage() {
         prefill: {
           name: addressForm.name.trim(),
           email: user?.email || '',
-          contact: addressForm.phone.trim()
+          contact: addressForm.phone.trim(),
+          ...(methodConfig?.prefillMethod ? { method: methodConfig.prefillMethod } : {})
         },
         notes: {
           orderId: orderData.orderId,
@@ -157,28 +231,44 @@ export default function CartPage() {
               console.warn('Could not record cancel status:', failErr)
             }
           }
-        }
+        },
+        ...(methodConfig?.config ? { config: methodConfig.config } : {})
       }
 
-      const rzpInstance = new window.Razorpay(options)
+      const attachFailureHandler = (instance) => {
+        instance.on('payment.failed', async function (response) {
+          setProcessing(false)
+          const errorDesc = response.error?.description || response.error?.reason || 'Payment transaction failed'
+          setCheckoutError(`Payment failed: ${errorDesc}. You can try again or change payment method.`)
 
-      rzpInstance.on('payment.failed', async function (response) {
-        setProcessing(false)
-        const errorDesc = response.error?.description || response.error?.reason || 'Payment transaction failed'
-        setCheckoutError(`Payment failed: ${errorDesc}. You can try again or change payment method.`)
+          try {
+            await recordPaymentFailure({
+              razorpay_order_id: orderData.razorpayOrderId,
+              orderId: orderData.orderId,
+              error: response.error
+            })
+          } catch (failErr) {
+            console.warn('Could not record failure status:', failErr)
+          }
+        })
+      }
 
-        try {
-          await recordPaymentFailure({
-            razorpay_order_id: orderData.razorpayOrderId,
-            orderId: orderData.orderId,
-            error: response.error
-          })
-        } catch (failErr) {
-          console.warn('Could not record failure status:', failErr)
+      let rzpInstance
+      try {
+        rzpInstance = new window.Razorpay(options)
+        attachFailureHandler(rzpInstance)
+        rzpInstance.open()
+      } catch (openErr) {
+        console.warn('Method-restricted Razorpay config failed to open, falling back to default options:', openErr)
+        const fallbackOptions = { ...options }
+        delete fallbackOptions.config
+        if (fallbackOptions.prefill) {
+          delete fallbackOptions.prefill.method
         }
-      })
-
-      rzpInstance.open()
+        rzpInstance = new window.Razorpay(fallbackOptions)
+        attachFailureHandler(rzpInstance)
+        rzpInstance.open()
+      }
     } catch (err) {
       console.error('Checkout error:', err)
       setProcessing(false)
@@ -377,11 +467,17 @@ export default function CartPage() {
               {checkoutStep === 3 && (
                 <CheckoutPaymentStep
                   total={total}
+                  address={addressForm}
                   onPayNow={handlePayNow}
                   onBack={() => setCheckoutStep(2)}
                   processing={processing}
                   verifying={verifying}
                   checkoutError={checkoutError}
+                  onPaymentSuccess={(confirmedOrderId) => {
+                    clearCart()
+                    setShowCheckoutModal(false)
+                    navigate(`/order-confirmation/${confirmedOrderId}`)
+                  }}
                 />
               )}
             </div>
