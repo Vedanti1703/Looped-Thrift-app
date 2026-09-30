@@ -97,7 +97,7 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <CartProvider>
-          <div className="w-full max-w-5xl mx-auto min-h-screen relative overflow-x-hidden">
+          <div className="w-full max-w-lg mx-auto min-h-screen relative overflow-x-hidden">
             <AppContent />
           </div>
         </CartProvider>

@@ -2,35 +2,50 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getRentableFeed } from '../services/rentalService'
 import Skeleton from '../components/Skeleton'
-import { formatPrice, conditionColor, truncate } from '../utils/helpers'
+import { formatPrice, truncate } from '../utils/helpers'
 
 export default function RentPage() {
   const navigate = useNavigate()
-  const [items, setItems] = useState([])
+  const [allItems, setAllItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [occasionFilter, setOccasionFilter] = useState('all') // 'all' | 'Wedding' | 'Party' | 'Formal'
 
   useEffect(() => {
     fetchFeed()
-  }, [occasionFilter])
+  }, [])
 
   const fetchFeed = async () => {
     setLoading(true)
     setError(null)
     try {
       const data = await getRentableFeed()
-      let feed = Array.isArray(data) ? data : data?.products || []
-      if (occasionFilter !== 'all') {
-        feed = feed.filter(p => (p.occasion || '').toLowerCase() === occasionFilter.toLowerCase())
-      }
-      setItems(feed)
+      const feed = Array.isArray(data) ? data : data?.products || []
+      setAllItems(feed)
     } catch (err) {
       setError('Could not load rentable items. Please pull down to refresh.')
     } finally {
       setLoading(false)
     }
   }
+
+  const counts = {
+    all: allItems.length,
+    Wedding: allItems.filter(p => (p.occasion || '').toLowerCase() === 'wedding').length,
+    Party: allItems.filter(p => (p.occasion || '').toLowerCase() === 'party').length,
+    Formal: allItems.filter(p => (p.occasion || '').toLowerCase() === 'formal').length,
+  }
+
+  const displayedItems = occasionFilter === 'all'
+    ? allItems
+    : allItems.filter(p => (p.occasion || '').toLowerCase() === occasionFilter.toLowerCase())
+
+  const chips = [
+    { key: 'all', label: `All (${counts.all})` },
+    { key: 'Wedding', label: `💍 Wedding & Bridal (${counts.Wedding})` },
+    { key: 'Party', label: `🍸 Party & Cocktail (${counts.Party})` },
+    { key: 'Formal', label: `👔 Formal & Black Tie (${counts.Formal})` },
+  ]
 
   return (
     <div className="min-h-screen pb-28" style={{ backgroundColor: 'var(--cream)' }}>
@@ -65,16 +80,11 @@ export default function RentPage() {
 
       {/* Occasion Filter Chips */}
       <div className="flex flex-wrap gap-2 px-4 py-3">
-        {[
-          { key: 'all', label: 'All Premium Rentals' },
-          { key: 'Wedding', label: '💍 Wedding & Bridal' },
-          { key: 'Party', label: '🍸 Party & Cocktail' },
-          { key: 'Formal', label: '👔 Formal & Black Tie' },
-        ].map(chip => (
+        {chips.map(chip => (
           <button
             key={chip.key}
             onClick={() => setOccasionFilter(chip.key)}
-            className={`text-xs px-3.5 py-1.5 rounded-full font-bold flex-shrink-0 transition-all ${
+            className={`text-xs px-3 py-1.5 rounded-full font-bold flex-shrink-0 transition-all ${
               occasionFilter === chip.key ? 'text-white shadow-xs' : 'border'
             }`}
             style={{
@@ -105,7 +115,7 @@ export default function RentPage() {
           <div className="bg-rose-50 border border-rose-200 text-rose-600 text-xs p-4 rounded-2xl text-center my-6">
             {error}
           </div>
-        ) : items.length === 0 ? (
+        ) : displayedItems.length === 0 ? (
           <div
             className="text-center py-16 rounded-3xl border border-dashed p-6 my-4 space-y-3"
             style={{ backgroundColor: 'var(--ivory)', borderColor: 'var(--pink-cotton)' }}
@@ -120,7 +130,10 @@ export default function RentPage() {
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3">
-            {items.map(product => {
+            {displayedItems.map(product => {
+              const occ = (product.occasion || '').toLowerCase()
+              const occBadge = occ === 'wedding' ? '💍 Wedding' : occ === 'party' ? '🍸 Party' : occ === 'formal' ? '👔 Formal' : product.occasion
+
               return (
                 <div
                   key={product._id || product.id}
@@ -143,7 +156,7 @@ export default function RentPage() {
                     {/* Occasion Badge */}
                     {product.occasion && (
                       <div className="absolute top-2 left-2 bg-pink-600/90 backdrop-blur-xs text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full shadow-xs flex items-center gap-1 z-10">
-                        {product.occasion === 'Wedding' ? '💍' : product.occasion === 'Party' ? '🍸' : '👔'} {product.occasion}
+                        {occBadge}
                       </div>
                     )}
 
@@ -172,7 +185,7 @@ export default function RentPage() {
                     </div>
 
                     <div className="pt-2 border-t flex items-center justify-between text-[11px] text-gray-500" style={{ borderColor: 'var(--pink-cotton)' }}>
-                      <span>Security Deposit:</span>
+                      <span>Deposit:</span>
                       <strong className="text-gray-900 font-bold" style={{ fontFamily: "'Fredoka', sans-serif" }}>
                         {formatPrice(product.securityDeposit || 0)}
                       </strong>

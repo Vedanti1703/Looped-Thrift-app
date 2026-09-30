@@ -15,7 +15,7 @@ export default function BottomNav() {
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-50 bottom-nav"
+      className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto z-50 bottom-nav"
       style={{
         paddingBottom: 'env(safe-area-inset-bottom)',
         backgroundColor: 'rgba(251, 244, 236, 0.96)',

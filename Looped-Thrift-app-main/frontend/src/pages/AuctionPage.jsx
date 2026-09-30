@@ -180,7 +180,7 @@ export default function AuctionPage() {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3">
             {auctions.map(auction => {
               const isLive = auction.status === 'live';
               const isEnding = auction.status === 'ending';

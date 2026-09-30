@@ -116,30 +116,12 @@
     overflow: hidden;
   }
 
-  /* Responsive product grid: 1 col on mobile (<640px), 2 cols on tablet (640-1024px), 3-4 cols on desktop (>1024px) */
+  /* 2-column card grid for phone-style layout at all screen widths */
   .product-grid {
     display: grid;
-    grid-template-columns: repeat(1, minmax(0, 1fr));
-    gap: 16px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
     width: 100%;
-  }
-  @media (min-width: 640px) {
-    .product-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 20px;
-    }
-  }
-  @media (min-width: 1024px) {
-    .product-grid {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 24px;
-    }
-  }
-  @media (min-width: 1280px) {
-    .product-grid {
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 24px;
-    }
   }
 
   .input {
