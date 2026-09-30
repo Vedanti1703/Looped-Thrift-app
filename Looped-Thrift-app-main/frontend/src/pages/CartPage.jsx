@@ -71,7 +71,16 @@ export default function CartPage() {
     if (checkoutError) setCheckoutError('')
   }
 
-  const handlePayNow = async () => {
+  // Only use prefill.method as a soft pre-selection hint.
+  // config.display.blocks with show_default_blocks:false requires account provisioning
+  // and causes "No appropriate payment method found" on standard test accounts.
+  const getMethodConfig = (method) => {
+    const validMethods = ['upi', 'card', 'netbanking', 'wallet']
+    return validMethods.includes(method) ? { prefillMethod: method } : null
+  }
+
+
+  const handlePayNow = async (selectedMethod = 'upi') => {
     setCheckoutError('')
     setNotice('')
 
@@ -94,6 +103,8 @@ export default function CartPage() {
       if (!orderData || !orderData.success) {
         throw new Error(orderData?.message || 'Failed to initialize payment order.')
       }
+
+      const methodConfig = getMethodConfig(selectedMethod)
 
       const options = {
         key: orderData.keyId,
@@ -134,7 +145,8 @@ export default function CartPage() {
         prefill: {
           name: addressForm.name.trim(),
           email: user?.email || '',
-          contact: addressForm.phone.trim()
+          contact: addressForm.phone.trim(),
+          ...(methodConfig?.prefillMethod ? { method: methodConfig.prefillMethod } : {})
         },
         notes: {
           orderId: orderData.orderId,
@@ -157,7 +169,8 @@ export default function CartPage() {
               console.warn('Could not record cancel status:', failErr)
             }
           }
-        }
+        },
+        ...(methodConfig?.config ? { config: methodConfig.config } : {})
       }
 
       const rzpInstance = new window.Razorpay(options)
@@ -377,11 +390,17 @@ export default function CartPage() {
               {checkoutStep === 3 && (
                 <CheckoutPaymentStep
                   total={total}
+                  address={addressForm}
                   onPayNow={handlePayNow}
                   onBack={() => setCheckoutStep(2)}
                   processing={processing}
                   verifying={verifying}
                   checkoutError={checkoutError}
+                  onPaymentSuccess={(confirmedOrderId) => {
+                    clearCart()
+                    setShowCheckoutModal(false)
+                    navigate(`/order-confirmation/${confirmedOrderId}`)
+                  }}
                 />
               )}
             </div>

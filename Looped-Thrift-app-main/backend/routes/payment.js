@@ -7,16 +7,22 @@ const {
   recordPaymentFailure,
   getOrderById,
   getMyOrders,
-  getRazorpayKey
+  getRazorpayKey,
+  createUpiQr,
+  getUpiQrStatus,
+  handleRazorpayWebhook
 } = require('../controllers/paymentController');
 
-// Public route to get Razorpay public key ID
+// Public routes
 router.get('/key', getRazorpayKey);
+router.post('/webhook', handleRazorpayWebhook);
 
 // Authenticated routes
 router.post('/create-order', auth, createOrder);
 router.post('/verify', auth, verifyPayment);
 router.post('/failure', auth, recordPaymentFailure);
+router.post('/upi-qr', auth, createUpiQr);
+router.get('/upi-qr/:qrId/status', auth, getUpiQrStatus);
 router.get('/my-orders', auth, getMyOrders);
 router.get('/order/:id', auth, getOrderById);
 
