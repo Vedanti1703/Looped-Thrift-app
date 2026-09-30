@@ -80,3 +80,26 @@ export async function getRazorpayKey() {
   const response = await api.get('/payment/key');
   return response.data;
 }
+
+/**
+ * Creates or retrieves a single-use Razorpay UPI QR code for the user's order.
+ * @param {Object} data { deliveryAddress, orderId }
+ */
+export async function createUpiQr(data = {}) {
+  const response = await api.post('/api/payments/upi-qr', data);
+  return response.data;
+}
+
+/**
+ * Polls payment status for a specific UPI QR code.
+ * @param {string} qrId
+ * @param {string} orderId (optional)
+ */
+export async function getUpiQrStatus(qrId, orderId = '') {
+  const url = orderId 
+    ? `/api/payments/upi-qr/${qrId}/status?orderId=${encodeURIComponent(orderId)}`
+    : `/api/payments/upi-qr/${qrId}/status`;
+  const response = await api.get(url);
+  return response.data;
+}
+
