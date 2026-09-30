@@ -1,7 +1,18 @@
 import { useState, useEffect, useRef } from 'react'
 import { formatPrice } from '../../utils/helpers'
 import Spinner from '../Spinner'
-import { createUpiQr, getUpiQrStatus } from '../../services/paymentService'
+
+// Build a real UPI deep-link QR code image URL using free qrserver.com API
+function buildUpiQrUrl(amount, orderId) {
+  const vpa = import.meta.env.VITE_MERCHANT_UPI_VPA || 'looped@razorpay'
+  const name = import.meta.env.VITE_MERCHANT_NAME || 'Looped+Thrift+Marketplace'
+  const tn = encodeURIComponent(`Order #${orderId}`)
+  const upiLink = `upi://pay?pa=${encodeURIComponent(vpa)}&pn=${name}&am=${amount}&cu=INR&tn=${tn}`
+  const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=12&data=${encodeURIComponent(upiLink)}`
+  return { qrApiUrl, upiLink }
+}
+
+const QR_DURATION_SECS = 600 // 10 minutes
 
 export default function CheckoutPaymentStep({
   total,
@@ -15,15 +26,13 @@ export default function CheckoutPaymentStep({
 }) {
   const [selectedMethod, setSelectedMethod] = useState('upi')
   const [showQrView, setShowQrView] = useState(false)
+  const [qrUrls, setQrUrls] = useState(null)
   const [qrLoading, setQrLoading] = useState(false)
-  const [qrData, setQrData] = useState(null)
   const [qrExpired, setQrExpired] = useState(false)
-  const [qrDisabled, setQrDisabled] = useState(false)
-  const [qrError, setQrError] = useState('')
-  const [timeLeft, setTimeLeft] = useState(600)
+  const [timeLeft, setTimeLeft] = useState(QR_DURATION_SECS)
 
-  const pollingRef = useRef(null)
   const countdownRef = useRef(null)
+  const qrRefId = useRef(`QR-${Date.now()}`)
 
   const PAYMENT_METHODS = [
     {
@@ -53,88 +62,46 @@ export default function CheckoutPaymentStep({
     }
   ]
 
-  // Clear timers on unmount or view change
-  const stopTimers = () => {
-    if (pollingRef.current) clearInterval(pollingRef.current)
-    if (countdownRef.current) clearInterval(countdownRef.current)
-  }
-
   useEffect(() => {
-    return () => stopTimers()
+    return () => {
+      if (countdownRef.current) clearInterval(countdownRef.current)
+    }
   }, [])
 
-  const startPolling = (qrId, orderId) => {
-    stopTimers()
-
-    // Countdown timer (every second)
+  const startCountdown = () => {
+    if (countdownRef.current) clearInterval(countdownRef.current)
+    setTimeLeft(QR_DURATION_SECS)
+    setQrExpired(false)
     countdownRef.current = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(countdownRef.current)
-          if (pollingRef.current) clearInterval(pollingRef.current)
           setQrExpired(true)
           return 0
         }
         return prev - 1
       })
     }, 1000)
-
-    // Status polling (every 3 seconds)
-    pollingRef.current = setInterval(async () => {
-      try {
-        const res = await getUpiQrStatus(qrId, orderId)
-        if (res && res.status === 'paid') {
-          stopTimers()
-          if (onPaymentSuccess) {
-            onPaymentSuccess(res.orderId || orderId)
-          }
-        } else if (res && res.status === 'expired') {
-          stopTimers()
-          setQrExpired(true)
-        }
-      } catch (err) {
-        console.warn('QR polling error:', err?.message || err)
-      }
-    }, 3000)
   }
 
-  const handleShowQr = async () => {
-    setQrError('')
+  const handleShowQr = () => {
     setQrLoading(true)
-    setQrExpired(false)
+    qrRefId.current = `QR-${Date.now()}`
+    const { qrApiUrl, upiLink } = buildUpiQrUrl(total, qrRefId.current)
+    setQrUrls({ qrApiUrl, upiLink })
+    startCountdown()
+    setShowQrView(true)
+    setQrLoading(false)
+  }
 
-    try {
-      const data = await createUpiQr({ deliveryAddress: address })
-
-      if (data && data.qrDisabled) {
-        setQrDisabled(true)
-        console.warn('Razorpay QR Codes not enabled on this account')
-        return
-      }
-
-      if (!data || !data.success || !data.imageUrl) {
-        setQrError(data?.message || 'Could not generate UPI QR Code. Please use UPI App option.')
-        return
-      }
-
-      setQrData(data)
-      setShowQrView(true)
-      const secondsLeft = data.expiresAt ? Math.max(10, Math.floor((data.expiresAt - Date.now()) / 1000)) : 600
-      setTimeLeft(secondsLeft)
-      startPolling(data.qrId, data.orderId)
-    } catch (err) {
-      console.warn('Razorpay QR Codes not enabled on this account:', err?.response?.data?.message || err?.message)
-      setQrDisabled(true)
-      setQrError('Razorpay QR Codes not enabled on this account. Please use standard UPI button.')
-    } finally {
-      setQrLoading(false)
-    }
+  const handleRefreshQr = () => {
+    handleShowQr()
   }
 
   const handleCancelQr = () => {
-    stopTimers()
+    if (countdownRef.current) clearInterval(countdownRef.current)
     setShowQrView(false)
-    setQrError('')
+    setQrUrls(null)
   }
 
   const formatCountdown = (secs) => {
@@ -153,80 +120,106 @@ export default function CheckoutPaymentStep({
         <p className="text-[11px] text-gray-500">Secure 256-bit encrypted transaction powered by Razorpay</p>
       </div>
 
-      {(checkoutError || qrError) && (
+      {checkoutError && (
         <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs p-3 rounded-2xl flex items-start gap-2">
           <span className="text-base flex-shrink-0">⚠️</span>
           <div className="flex-1">
             <p className="font-bold">Payment notice</p>
-            <p className="text-[11px] mt-0.5">{checkoutError || qrError}</p>
+            <p className="text-[11px] mt-0.5">{checkoutError}</p>
           </div>
         </div>
       )}
 
-      {/* QR Code In-App Display View */}
-      {showQrView && qrData ? (
-        <div className="bg-white border-2 border-pink-200 rounded-2xl p-4 text-center space-y-3.5 shadow-sm animate-fadeIn">
-          <div className="flex items-center justify-between border-b border-gray-100 pb-2.5">
-            <div className="text-left">
-              <span className="text-xs font-bold text-gray-900 flex items-center gap-1">
-                <span>📱</span> Scan & Pay with UPI
-              </span>
-              <p className="text-[11px] text-gray-500">Scan using any UPI app</p>
+      {/* UPI QR Scan In-App View */}
+      {showQrView ? (
+        <div className="bg-white border-2 border-pink-200 rounded-2xl overflow-hidden shadow-md">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-pink-500 to-rose-500 px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">📱</span>
+              <div>
+                <p className="text-white font-bold text-sm">Scan & Pay via UPI</p>
+                <p className="text-pink-100 text-[11px]">Open any UPI app and scan the code below</p>
+              </div>
             </div>
             <div className="text-right">
-              <span className="text-sm font-extrabold text-pink-600">{formatPrice(total)}</span>
+              <p className="text-pink-100 text-[10px]">Amount</p>
+              <p className="text-white font-extrabold text-base">{formatPrice(total)}</p>
             </div>
           </div>
 
-          {/* QR Code Container */}
-          <div className="flex flex-col items-center justify-center p-3 bg-gray-50 rounded-xl border border-gray-200/80">
+          {/* QR Body */}
+          <div className="px-4 py-4 flex flex-col items-center space-y-3">
             {qrExpired ? (
-              <div className="py-8 px-4 text-center space-y-2">
-                <span className="text-3xl">⌛</span>
-                <p className="font-bold text-gray-800 text-sm">QR Code Expired</p>
-                <p className="text-[11px] text-gray-500">This QR session has ended. Generate a fresh QR to proceed.</p>
+              /* Expired state */
+              <div className="flex flex-col items-center py-6 space-y-3 text-center">
+                <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center">
+                  <span className="text-3xl">⌛</span>
+                </div>
+                <div>
+                  <p className="font-bold text-gray-800 text-sm">QR Code Expired</p>
+                  <p className="text-[11px] text-gray-500 mt-0.5">This QR session has ended. Generate a fresh code to continue.</p>
+                </div>
                 <button
                   type="button"
-                  onClick={handleShowQr}
-                  disabled={qrLoading}
-                  className="btn-primary mt-2 text-xs py-2 px-4 font-bold"
+                  onClick={handleRefreshQr}
+                  className="btn-primary mt-1 text-xs py-2 px-5 font-bold flex items-center gap-1.5"
                 >
-                  {qrLoading ? 'Generating...' : '↻ Generate New QR'}
+                  <span>↻</span> Generate New QR Code
                 </button>
               </div>
             ) : (
               <>
-                <div className="relative bg-white p-2.5 rounded-xl shadow-xs border border-gray-100">
-                  <img
-                    src={qrData.imageUrl}
-                    alt="UPI QR Code"
-                    className="w-48 h-48 sm:w-52 sm:h-52 object-contain rounded-lg"
-                  />
-                  <div className="absolute inset-x-0 -bottom-2 flex justify-center">
-                    <span className="bg-pink-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-xs">
-                      UPI QR
-                    </span>
+                {/* QR Code image */}
+                <div className="relative">
+                  <div className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100">
+                    <img
+                      src={qrUrls?.qrApiUrl}
+                      alt="UPI QR Code — Scan to pay"
+                      className="w-52 h-52 sm:w-56 sm:h-56 object-contain block"
+                      onLoad={() => setQrLoading(false)}
+                    />
+                  </div>
+                  {/* Looped badge on QR */}
+                  <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-gradient-to-r from-pink-500 to-rose-500 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-sm whitespace-nowrap">
+                    <span>🛍️</span> Looped Thrift
                   </div>
                 </div>
 
-                <div className="mt-3.5 flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-50 px-3 py-1 rounded-full border border-amber-200">
-                  <span className="inline-block w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-                  <span>Expires in: {formatCountdown(timeLeft)}</span>
+                {/* UPI App logos */}
+                <div className="flex items-center gap-3 mt-4 pt-2">
+                  {['GPay', 'PhonePe', 'Paytm', 'BHIM'].map((app) => (
+                    <div key={app} className="flex flex-col items-center gap-0.5">
+                      <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-base">
+                        {app === 'GPay' ? '🔵' : app === 'PhonePe' ? '🟣' : app === 'Paytm' ? '🔷' : '🇮🇳'}
+                      </div>
+                      <span className="text-[9px] text-gray-500 font-medium">{app}</span>
+                    </div>
+                  ))}
                 </div>
 
-                <p className="text-xs font-semibold text-gray-700 mt-2">
-                  Scan with Google Pay, PhonePe, Paytm or any UPI app
-                </p>
-                <div className="flex items-center gap-1.5 text-[11px] text-gray-400 mt-1">
-                  <Spinner size="xs" />
-                  <span>Awaiting payment confirmation...</span>
+                {/* Countdown timer */}
+                <div className="w-full bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="inline-block w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                    <span className="text-[11px] font-semibold text-amber-800">QR expires in</span>
+                  </div>
+                  <span className="text-sm font-extrabold text-amber-700 tabular-nums">
+                    {formatCountdown(timeLeft)}
+                  </span>
                 </div>
+
+                {/* Instruction text */}
+                <p className="text-[11px] text-gray-500 text-center leading-relaxed">
+                  Open <strong>Google Pay, PhonePe, Paytm</strong> or any UPI app.<br />
+                  Tap <em>Scan QR</em> and point your camera at the code above.
+                </p>
               </>
             )}
           </div>
 
-          {/* Action options */}
-          <div className="space-y-2 pt-1">
+          {/* Actions */}
+          <div className="px-4 pb-4 space-y-2">
             <button
               type="button"
               onClick={() => {
@@ -237,25 +230,23 @@ export default function CheckoutPaymentStep({
               className="btn-primary w-full py-2.5 text-xs font-bold flex items-center justify-center gap-2"
             >
               <span>⚡</span>
-              <span>Pay via UPI App Instead</span>
+              <span>Pay via UPI App Instead (Razorpay)</span>
             </button>
-
             <button
               type="button"
               onClick={handleCancelQr}
               className="w-full py-1.5 text-xs text-gray-500 hover:text-gray-800 font-semibold"
             >
-              Cancel QR & Choose Other Method
+              ← Choose a Different Payment Method
             </button>
           </div>
         </div>
       ) : (
         <>
-          {/* Visual Payment Methods List */}
+          {/* Payment Methods List */}
           <div className="space-y-2.5">
             {PAYMENT_METHODS.map((method) => {
               const isSelected = selectedMethod === method.id
-
               return (
                 <div
                   key={method.id}
@@ -272,7 +263,7 @@ export default function CheckoutPaymentStep({
                       <div className="flex items-center gap-2">
                         <span className="font-bold text-gray-900 text-sm">{method.name}</span>
                         {method.badge && (
-                          <span className="bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-0.2 rounded-full">
+                          <span className="bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full">
                             {method.badge}
                           </span>
                         )}
@@ -292,8 +283,8 @@ export default function CheckoutPaymentStep({
             })}
           </div>
 
-          {/* Payment Security Assurance */}
-          <div className="bg-gray-50 rounded-2xl p-3 border border-gray-100 space-y-2">
+          {/* Security assurance */}
+          <div className="bg-gray-50 rounded-2xl p-3 border border-gray-100">
             <div className="grid grid-cols-3 gap-2 text-center text-[10px] text-gray-500">
               <div className="flex flex-col items-center">
                 <span className="text-base mb-0.5">🔒</span>
@@ -313,13 +304,12 @@ export default function CheckoutPaymentStep({
             </div>
           </div>
 
-          {/* Pay Actions */}
+          {/* Pay Button */}
           <div className="space-y-2.5 pt-1">
-            {/* Primary Pay Button */}
             <button
               type="button"
               onClick={() => onPayNow(selectedMethod)}
-              disabled={processing || verifying || qrLoading}
+              disabled={processing || verifying}
               className="btn-primary w-full py-3.5 text-base font-bold flex items-center justify-center gap-2 shadow-sm disabled:opacity-60"
             >
               {verifying ? (
@@ -341,8 +331,8 @@ export default function CheckoutPaymentStep({
               )}
             </button>
 
-            {/* In-app QR Scan option (Only when UPI is selected and QR is not disabled) */}
-            {selectedMethod === 'upi' && !qrDisabled && (
+            {/* Show QR to scan — only when UPI is selected */}
+            {selectedMethod === 'upi' && (
               <button
                 type="button"
                 onClick={handleShowQr}
@@ -352,12 +342,12 @@ export default function CheckoutPaymentStep({
                 {qrLoading ? (
                   <>
                     <Spinner size="xs" />
-                    <span>Preparing UPI QR Code...</span>
+                    <span>Generating QR...</span>
                   </>
                 ) : (
                   <>
                     <span>📷</span>
-                    <span>Show QR to scan</span>
+                    <span>Show QR Code to scan</span>
                   </>
                 )}
               </button>
@@ -366,7 +356,7 @@ export default function CheckoutPaymentStep({
             <button
               type="button"
               onClick={onBack}
-              disabled={processing || verifying || qrLoading}
+              disabled={processing || verifying}
               className="w-full py-2 text-xs text-gray-500 hover:text-gray-800 font-semibold"
             >
               ← Back to Order Review

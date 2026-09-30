@@ -71,76 +71,14 @@ export default function CartPage() {
     if (checkoutError) setCheckoutError('')
   }
 
+  // Only use prefill.method as a soft pre-selection hint.
+  // config.display.blocks with show_default_blocks:false requires account provisioning
+  // and causes "No appropriate payment method found" on standard test accounts.
   const getMethodConfig = (method) => {
-    switch (method) {
-      case 'upi':
-        return {
-          config: {
-            display: {
-              blocks: {
-                upi: {
-                  name: 'Pay via UPI',
-                  instruments: [{ method: 'upi' }]
-                }
-              },
-              sequence: ['block.upi'],
-              preferences: { show_default_blocks: false }
-            }
-          },
-          prefillMethod: 'upi'
-        }
-      case 'card':
-        return {
-          config: {
-            display: {
-              blocks: {
-                card: {
-                  name: 'Credit / Debit Card',
-                  instruments: [{ method: 'card' }]
-                }
-              },
-              sequence: ['block.card'],
-              preferences: { show_default_blocks: false }
-            }
-          },
-          prefillMethod: 'card'
-        }
-      case 'netbanking':
-        return {
-          config: {
-            display: {
-              blocks: {
-                netbanking: {
-                  name: 'Net Banking',
-                  instruments: [{ method: 'netbanking' }]
-                }
-              },
-              sequence: ['block.netbanking'],
-              preferences: { show_default_blocks: false }
-            }
-          },
-          prefillMethod: 'netbanking'
-        }
-      case 'wallet':
-        return {
-          config: {
-            display: {
-              blocks: {
-                wallet: {
-                  name: 'Wallets & More',
-                  instruments: [{ method: 'wallet' }]
-                }
-              },
-              sequence: ['block.wallet'],
-              preferences: { show_default_blocks: false }
-            }
-          },
-          prefillMethod: 'wallet'
-        }
-      default:
-        return null
-    }
+    const validMethods = ['upi', 'card', 'netbanking', 'wallet']
+    return validMethods.includes(method) ? { prefillMethod: method } : null
   }
+
 
   const handlePayNow = async (selectedMethod = 'upi') => {
     setCheckoutError('')
@@ -235,40 +173,25 @@ export default function CartPage() {
         ...(methodConfig?.config ? { config: methodConfig.config } : {})
       }
 
-      const attachFailureHandler = (instance) => {
-        instance.on('payment.failed', async function (response) {
-          setProcessing(false)
-          const errorDesc = response.error?.description || response.error?.reason || 'Payment transaction failed'
-          setCheckoutError(`Payment failed: ${errorDesc}. You can try again or change payment method.`)
+      const rzpInstance = new window.Razorpay(options)
 
-          try {
-            await recordPaymentFailure({
-              razorpay_order_id: orderData.razorpayOrderId,
-              orderId: orderData.orderId,
-              error: response.error
-            })
-          } catch (failErr) {
-            console.warn('Could not record failure status:', failErr)
-          }
-        })
-      }
+      rzpInstance.on('payment.failed', async function (response) {
+        setProcessing(false)
+        const errorDesc = response.error?.description || response.error?.reason || 'Payment transaction failed'
+        setCheckoutError(`Payment failed: ${errorDesc}. You can try again or change payment method.`)
 
-      let rzpInstance
-      try {
-        rzpInstance = new window.Razorpay(options)
-        attachFailureHandler(rzpInstance)
-        rzpInstance.open()
-      } catch (openErr) {
-        console.warn('Method-restricted Razorpay config failed to open, falling back to default options:', openErr)
-        const fallbackOptions = { ...options }
-        delete fallbackOptions.config
-        if (fallbackOptions.prefill) {
-          delete fallbackOptions.prefill.method
+        try {
+          await recordPaymentFailure({
+            razorpay_order_id: orderData.razorpayOrderId,
+            orderId: orderData.orderId,
+            error: response.error
+          })
+        } catch (failErr) {
+          console.warn('Could not record failure status:', failErr)
         }
-        rzpInstance = new window.Razorpay(fallbackOptions)
-        attachFailureHandler(rzpInstance)
-        rzpInstance.open()
-      }
+      })
+
+      rzpInstance.open()
     } catch (err) {
       console.error('Checkout error:', err)
       setProcessing(false)
